@@ -216,3 +216,6 @@ tmp/
 instagram_monitor_exposure.json
 instagram_monitor_user_ids.json
 instagram_monitor_exposure.json.lock
+
+# Local agent instructions (remote test machine access, conventions); kept out of the repository
+AGENTS.md
