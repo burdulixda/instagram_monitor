@@ -1,0 +1,4 @@
+node_modules/
+build/
+# Built output is committed: dist/index.html is the deployable template
+!dist/

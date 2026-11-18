@@ -1,0 +1,2093 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="app-version" content="{{ version }}">
+{% raw %}
+<meta name="color-scheme" content="light dark">
+<title>Instagram Monitor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23f97316'/%3E%3Cstop offset='.5' stop-color='%23ec4899'/%3E%3Cstop offset='1' stop-color='%23a855f7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Crect x='8' y='8' width='16' height='16' rx='5' fill='none' stroke='white' stroke-width='2.2'/%3E%3Ccircle cx='16' cy='16' r='3.6' fill='none' stroke='white' stroke-width='2.2'/%3E%3Ccircle cx='21' cy='11' r='1.2' fill='white'/%3E%3C/svg%3E">
+<script>
+  // Applies the saved theme before first paint so the page never flashes the wrong colours
+  (function () {
+    var mode = 'system';
+    try { mode = localStorage.getItem('igm-theme') || 'system'; } catch (e) {}
+    var dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', dark);
+  })();
+</script>
+<style>/*__TAILWIND__*/</style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased dark:bg-gray-900 dark:text-white">
+
+<!-- Top navigation -->
+<nav class="fixed top-0 z-40 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+  <div class="px-3 py-3 lg:px-5">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2 min-w-0">
+        <button type="button" data-action="toggle-sidebar" class="btn-icon btn-ghost lg:hidden" aria-controls="sidebar" aria-label="Open navigation">
+          <i data-icon="bars-3" class="w-6 h-6"></i>
+        </button>
+        <a href="#overview" class="flex items-center gap-2.5 min-w-0">
+          <span class="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-gradient-to-tr from-orange-500 via-pink-500 to-purple-500 text-white shadow-sm">
+            <i data-icon="camera" class="w-5 h-5"></i>
+          </span>
+          <span class="text-lg font-semibold truncate sm:text-xl dark:text-white">Instagram Monitor</span>
+        </a>
+      </div>
+      <div class="flex items-center gap-1.5 sm:gap-3">
+        <span id="global-status" class="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+          <span class="relative flex w-2.5 h-2.5"><span id="global-status-ping" class="absolute inline-flex w-full h-full rounded-full opacity-75"></span><span id="global-status-dot" class="relative inline-flex w-2.5 h-2.5 rounded-full bg-gray-400"></span></span>
+          <span id="global-status-text">Connecting…</span>
+        </span>
+        <button type="button" data-action="cycle-theme" class="btn-icon btn-ghost" id="theme-button" aria-label="Change theme" title="Theme"></button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Sidebar -->
+<aside id="sidebar" class="fixed top-0 left-0 z-30 flex flex-col w-64 h-full pt-16 transition-transform -translate-x-full bg-white border-r border-gray-200 lg:translate-x-0 dark:bg-gray-800 dark:border-gray-700" aria-label="Navigation">
+  <div class="flex flex-col flex-1 min-h-0 overflow-y-auto">
+    <div class="flex-1 px-3 py-4">
+      <ul class="space-y-1.5">
+        <li><a href="#overview" class="nav-link" data-page-link="overview"><i data-icon="squares-2x2"></i><span class="flex-1">Overview</span></a></li>
+        <li><a href="#targets" class="nav-link" data-page-link="targets"><i data-icon="users"></i><span class="flex-1">Targets</span><span id="nav-targets-count" class="badge badge-idle" hidden></span></a></li>
+        <li><a href="#session" class="nav-link" data-page-link="session"><i data-icon="key"></i><span class="flex-1">Session</span><span id="nav-session-dot" class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span></a></li>
+        <li><a href="#settings" class="nav-link" data-page-link="settings"><i data-icon="cog-6-tooth"></i><span class="flex-1">Settings</span><span id="nav-settings-dirty" class="badge badge-warning" hidden>Unsaved</span></a></li>
+        <li><a href="#activity" class="nav-link" data-page-link="activity"><i data-icon="clipboard-document-list"></i><span class="flex-1">Activity log</span><span id="nav-activity-errors" class="badge badge-error" hidden></span></a></li>
+      </ul>
+
+      <div class="pt-4 mt-4 space-y-3 border-t border-gray-200 dark:border-gray-700">
+        <p class="px-2 text-xs font-semibold tracking-wider text-gray-400 uppercase dark:text-gray-500">Session account</p>
+        <a href="#session" class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <span id="side-session-avatar" class="flex items-center justify-center w-9 h-9 text-sm font-semibold text-white rounded-full shrink-0 bg-gray-400 dark:bg-gray-600">?</span>
+          <span class="min-w-0">
+            <span id="side-session-name" class="block text-sm font-medium text-gray-900 truncate dark:text-white">Not configured</span>
+            <span id="side-session-mode" class="block text-xs text-gray-500 truncate dark:text-gray-400">No-login mode</span>
+          </span>
+        </a>
+        <div class="flex items-center justify-between px-2 text-sm">
+          <span class="flex items-center gap-2 text-gray-500 dark:text-gray-400"><i data-icon="shield-check" class="w-4 h-4"></i>Safety stop</span>
+          <span id="side-breaker" class="badge badge-idle">–</span>
+        </div>
+      </div>
+    </div>
+    <div class="px-5 py-4 space-y-1.5 text-xs text-gray-500 border-t border-gray-200 dark:border-gray-700 dark:text-gray-400">
+      <div class="flex justify-between"><span>Uptime</span><span id="server-uptime" class="font-medium text-gray-700 dark:text-gray-300">–</span></div>
+      <div class="flex justify-between"><span>Version</span><span class="font-medium text-gray-700 dark:text-gray-300">v<span id="tool-version"></span></span></div>
+      <div class="flex justify-between"><span>Live data</span><span id="live-indicator" class="font-medium text-gray-700 dark:text-gray-300">–</span></div>
+    </div>
+  </div>
+</aside>
+<div id="sidebar-backdrop" class="fixed inset-0 z-20 bg-gray-900/50 dark:bg-gray-900/80 lg:hidden" data-action="close-sidebar" hidden></div>
+
+<div class="relative w-full min-h-screen pt-16 lg:ps-64">
+  <main class="px-4 py-5 mx-auto sm:px-6 sm:py-6 max-w-screen-2xl">
+
+    <div id="connection-banner" class="mb-4 alert alert-error" role="alert" hidden>
+      <i data-icon="exclamation-triangle" class="w-5 h-5 shrink-0"></i>
+      <div><span class="font-medium">Lost contact with the monitor.</span> <span id="connection-banner-text">Retrying every 5 seconds…</span></div>
+    </div>
+
+    <!-- ============================== Overview ============================== -->
+    <section data-page="overview" class="space-y-4 sm:space-y-6" hidden>
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Overview</h1>
+          <p id="overview-subtitle" class="mt-1 text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="seg" role="group" aria-label="Overview detail level">
+            <button type="button" class="seg-btn" data-action="set-mode" data-mode="user" title="Simple view"><span class="inline-flex items-center gap-1.5"><i data-icon="user-circle" class="w-4 h-4"></i>User</span></button>
+            <button type="button" class="seg-btn" data-action="set-mode" data-mode="config" title="Detailed view"><span class="inline-flex items-center gap-1.5"><i data-icon="adjustments-horizontal" class="w-4 h-4"></i>Config</span></button>
+          </div>
+          <button type="button" class="btn btn-primary" data-action="open-add-target"><i data-icon="plus" class="w-4 h-4"></i>Add target</button>
+          <div class="inline-flex rounded-lg shadow-sm" role="group" aria-label="All targets">
+            <button type="button" data-action="start-all" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-s-lg hover:bg-gray-100 hover:text-green-700 focus:z-10 focus:ring-2 focus:ring-primary-300 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"><i data-icon="play" class="w-4 h-4"></i>Start all</button>
+            <button type="button" data-action="recheck-all" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 hover:text-primary-700 focus:z-10 focus:ring-2 focus:ring-primary-300 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"><i data-icon="arrow-path" class="w-4 h-4"></i>Recheck all</button>
+            <button type="button" data-action="stop-all" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-e-lg hover:bg-gray-100 hover:text-red-700 focus:z-10 focus:ring-2 focus:ring-primary-300 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"><i data-icon="stop" class="w-4 h-4"></i>Stop all</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="overview-alerts" class="space-y-3"></div>
+
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="card card-body">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Targets</p>
+              <p id="stat-targets" class="mt-1 text-3xl font-bold leading-none text-gray-900 dark:text-white">–</p>
+              <p id="stat-targets-sub" class="mt-2 text-sm text-gray-500 dark:text-gray-400">&nbsp;</p>
+            </div>
+            <span class="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300"><i data-icon="users" class="w-6 h-6"></i></span>
+          </div>
+        </div>
+        <div class="card card-body">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Checks completed</p>
+              <p id="stat-checks" class="mt-1 text-3xl font-bold leading-none text-gray-900 dark:text-white">–</p>
+              <p id="stat-checks-sub" class="mt-2 text-sm text-gray-500 dark:text-gray-400">&nbsp;</p>
+            </div>
+            <span class="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"><i data-icon="check-circle" class="w-6 h-6"></i></span>
+          </div>
+        </div>
+        <div class="card card-body">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Last check</p>
+              <p id="stat-last" class="mt-1 text-3xl font-bold leading-none text-gray-900 truncate dark:text-white">–</p>
+              <p id="stat-last-sub" class="mt-2 text-sm text-gray-500 dark:text-gray-400">&nbsp;</p>
+            </div>
+            <span class="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"><i data-icon="clock" class="w-6 h-6"></i></span>
+          </div>
+        </div>
+        <div class="card card-body">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Next check</p>
+              <p id="stat-next" class="mt-1 text-3xl font-bold leading-none text-gray-900 truncate dark:text-white">–</p>
+              <p id="stat-next-sub" class="mt-2 text-sm text-gray-500 dark:text-gray-400">&nbsp;</p>
+            </div>
+            <span class="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"><i data-icon="calendar-days" class="w-6 h-6"></i></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- User view -->
+      <div id="overview-user" class="space-y-4 sm:space-y-6">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Monitored targets</h2>
+              <p class="card-subtitle">Counts from the latest check of each account</p>
+            </div>
+            <a href="#targets" class="inline-flex items-center gap-1 text-sm link">Manage targets<i data-icon="chevron-right" class="w-4 h-4"></i></a>
+          </div>
+          <div class="mt-4 overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                  <th class="th"><button type="button" class="inline-flex items-center gap-1 uppercase" data-action="sort-targets">Target<span data-sort-indicator></span></button></th>
+                  <th class="th">Visibility</th>
+                  <th class="text-right th">Followers</th>
+                  <th class="text-right th">Following</th>
+                  <th class="text-right th">Posts</th>
+                  <th class="text-right th">Reels</th>
+                  <th class="th">Story</th>
+                  <th class="th">Status</th>
+                  <th class="text-right th">Analysis</th>
+                </tr>
+              </thead>
+              <tbody id="targets-simple-body" class="bg-white divide-y divide-gray-100 dark:bg-gray-800 dark:divide-gray-700"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid gap-4 sm:gap-6 xl:grid-cols-3">
+          <div class="min-w-0 card xl:col-span-2">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Latest fetched updates</h2>
+                <p class="card-subtitle">Posts, reels and stories downloaded by the monitor</p>
+              </div>
+            </div>
+            <div id="last-fetched" class="p-4 sm:p-6"></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Recent activity</h2>
+                <p class="card-subtitle">Latest 10 events</p>
+              </div>
+              <a href="#activity" class="text-sm link">View all</a>
+            </div>
+            <div class="px-4 pt-3 sm:px-6"><div class="seg" data-log-filter-group></div></div>
+            <ol class="p-4 sm:p-6" data-activity-feed="recent"></ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Config view -->
+      <div id="overview-config" class="space-y-4 sm:space-y-6" hidden>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Detailed targets view</h2>
+              <p class="card-subtitle">All counters with per-target controls</p>
+            </div>
+          </div>
+          <div class="mt-4 overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                  <th class="th"><button type="button" class="inline-flex items-center gap-1 uppercase" data-action="sort-targets">Target<span data-sort-indicator></span></button></th>
+                  <th class="th">Visibility</th>
+                  <th class="text-right th">Followers</th>
+                  <th class="text-right th">Following</th>
+                  <th class="text-right th">Posts</th>
+                  <th class="text-right th">Reels</th>
+                  <th class="th">Story</th>
+                  <th class="th">Status</th>
+                  <th class="text-right th">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="targets-config-body" class="bg-white divide-y divide-gray-100 dark:bg-gray-800 dark:divide-gray-700"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="grid gap-4 sm:gap-6 xl:grid-cols-3">
+          <div class="min-w-0 card xl:col-span-2">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Detailed configuration</h2>
+                <p class="card-subtitle">What the running monitor is using right now</p>
+              </div>
+            </div>
+            <div id="config-groups" class="p-4 space-y-6 sm:p-6"></div>
+          </div>
+          <div class="space-y-4 sm:space-y-6">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Environment</h2>
+                  <p class="card-subtitle">Client identity and files</p>
+                </div>
+              </div>
+              <dl id="env-details" class="grid gap-4 p-4 sm:p-6"></dl>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Recent activity</h2>
+                  <p class="card-subtitle">Latest 10 events</p>
+                </div>
+                <a href="#activity" class="text-sm link">View all</a>
+              </div>
+              <div class="px-4 pt-3 sm:px-6"><div class="seg" data-log-filter-group></div></div>
+              <ol class="p-4 sm:p-6" data-activity-feed="recent"></ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== Targets ============================== -->
+    <section data-page="targets" class="space-y-4 sm:space-y-6" hidden>
+      <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Targets</h1>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Accounts the monitor checks, with their schedule and controls</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-action="open-add-target"><i data-icon="plus" class="w-4 h-4"></i>Add target</button>
+      </div>
+      <div class="card">
+        <div class="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+          <div class="relative w-full sm:w-72">
+            <div class="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3 text-gray-500 dark:text-gray-400"><i data-icon="magnifying-glass" class="w-4 h-4"></i></div>
+            <input type="search" id="targets-search" class="form-input ps-9" placeholder="Search targets" autocomplete="off">
+          </div>
+          <span id="targets-count-label" class="text-sm text-gray-500 dark:text-gray-400"></span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th class="th"><button type="button" class="inline-flex items-center gap-1 uppercase" data-action="sort-targets">Username<span data-sort-indicator></span></button></th>
+                <th class="text-right th">Followers</th>
+                <th class="text-right th">Following</th>
+                <th class="hidden th 2xl:table-cell">Added</th>
+                <th class="th">Schedule</th>
+                <th class="th">Status</th>
+                <th class="text-right th">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="targets-page-body" class="bg-white divide-y divide-gray-100 dark:bg-gray-800 dark:divide-gray-700"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== Session ============================== -->
+    <section data-page="session" class="space-y-4 sm:space-y-6" hidden>
+      <div>
+        <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Session</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">The Instagram login the monitor uses for follower lists and detailed data</p>
+      </div>
+      <div class="grid gap-4 sm:gap-6 xl:grid-cols-3">
+        <div class="min-w-0 space-y-4 sm:space-y-6 xl:col-span-2">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Session overview</h2>
+                <p class="card-subtitle" id="session-status-text">Not configured</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="session-mode-indicator" class="badge badge-idle">Checking…</span>
+                <span id="session-badge" class="badge badge-idle">Inactive</span>
+              </div>
+            </div>
+            <div class="p-4 sm:p-6">
+              <dl id="session-details" class="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3" hidden>
+                <div><dt class="dl-term">Username</dt><dd id="session-detail-username" class="dl-desc">–</dd></div>
+                <div class="sm:col-span-2"><dt class="dl-term">Session file</dt><dd id="session-detail-file" class="font-mono text-xs dl-desc">–</dd></div>
+                <div><dt class="dl-term">File size</dt><dd id="session-detail-size" class="dl-desc">–</dd></div>
+                <div><dt class="dl-term">Last modified</dt><dd id="session-detail-modified" class="dl-desc">–</dd></div>
+                <div><dt class="dl-term">Method</dt><dd id="session-detail-method" class="dl-desc">–</dd></div>
+                <div><dt class="dl-term">Last tested</dt><dd id="session-detail-tested" class="dl-desc">–</dd></div>
+              </dl>
+              <div id="session-empty" class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <i data-icon="lock-open" class="w-5 h-5"></i>No session is configured. The monitor runs in no-login mode with public data only.
+              </div>
+              <div class="flex flex-wrap gap-2 pt-5 mt-5 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" class="btn btn-light" data-action="test-session"><i data-icon="beaker" class="w-4 h-4"></i>Test session</button>
+                <button type="button" class="btn btn-light" data-action="refresh-session" id="refresh-session-btn" hidden><i data-icon="arrow-path" class="w-4 h-4"></i>Refresh</button>
+                <button type="button" class="btn btn-danger" data-action="clear-session" id="clear-session-btn" hidden><i data-icon="trash" class="w-4 h-4"></i>Reset to no-login mode</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Configure session</h2>
+                <p class="card-subtitle">Import cookies from a signed-in browser, or point the monitor at an existing session file</p>
+              </div>
+            </div>
+            <div class="grid gap-6 p-4 sm:p-6 lg:grid-cols-2">
+              <div class="space-y-4">
+                <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><i data-icon="arrow-down-tray" class="w-5 h-5 text-primary-600 dark:text-primary-500"></i>Import from browser</div>
+                <div>
+                  <label for="browser-select" class="form-label">Browser</label>
+                  <select id="browser-select" class="form-input">
+                    <option value="firefox">Firefox (recommended)</option>
+                    <option value="chrome">Google Chrome</option>
+                    <option value="brave">Brave</option>
+                    <option value="chromium">Chromium (standalone browser, not Chrome)</option>
+                  </select>
+                  <p id="browser-import-note" class="form-help" hidden></p>
+                </div>
+                <div id="browser-profiles-container" class="p-4 space-y-3 rounded-lg bg-gray-50 dark:bg-gray-700/50" hidden>
+                  <label for="browser-profile-select" class="form-label">Profile</label>
+                  <select id="browser-profile-select" class="form-input"></select>
+                  <p class="form-help">Profiles marked with * are signed in to Instagram.</p>
+                  <button type="button" class="btn btn-primary" data-action="import-selected-profile"><i data-icon="arrow-down-tray" class="w-4 h-4"></i>Import selected profile</button>
+                </div>
+                <button type="button" class="btn btn-primary" id="browser-import-btn" data-action="browser-import"><i data-icon="arrow-down-tray" class="w-4 h-4"></i>Import from <span id="browser-import-label">Firefox</span></button>
+              </div>
+              <div class="pt-6 space-y-4 border-t border-gray-200 lg:pt-0 lg:ps-6 lg:border-t-0 lg:border-s dark:border-gray-700">
+                <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><i data-icon="finger-print" class="w-5 h-5 text-primary-600 dark:text-primary-500"></i>Manual username setup</div>
+                <div>
+                  <label for="session-username" class="form-label">Instagram username (logged-in mode)</label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3 text-gray-500 dark:text-gray-400"><i data-icon="at-symbol" class="w-4 h-4"></i></div>
+                    <input type="text" id="session-username" class="form-input ps-9" placeholder="your_instagram_username" autocomplete="off" spellcheck="false">
+                  </div>
+                  <p class="form-help">Uses the saved Instaloader session file for this username.</p>
+                </div>
+                <button type="button" class="btn btn-light" data-action="set-session-username"><i data-icon="lock-closed" class="w-4 h-4"></i>Set username</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4 sm:space-y-6">
+          <div class="card card-body">
+            <h2 class="card-title">Session modes</h2>
+            <ul class="mt-4 space-y-4 text-sm text-gray-600 dark:text-gray-300">
+              <li class="flex gap-3"><span class="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"><i data-icon="lock-open" class="w-4 h-4"></i></span><span><span class="font-semibold text-gray-900 dark:text-white">No-login mode.</span> No login required. Limited to basic profile info and post counts.</span></li>
+              <li class="flex gap-3"><span class="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300"><i data-icon="lock-closed" class="w-4 h-4"></i></span><span><span class="font-semibold text-gray-900 dark:text-white">Logged-in mode.</span> Requires an Instagram account login. Provides the full feature set, including follower and following lists, stories and detailed post and reel info.</span></li>
+              <li class="flex gap-3"><span class="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"><i data-icon="check-circle" class="w-4 h-4"></i></span><span><span class="font-semibold text-gray-900 dark:text-white">Recommended.</span> Use the Firefox cookie import for the best compatibility and lower detection risk.</span></li>
+            </ul>
+          </div>
+          <div class="alert alert-warning" role="note">
+            <i data-icon="exclamation-triangle" class="w-5 h-5 shrink-0"></i>
+            <div>Do not use Instagram in the browser the session came from while the monitor is running. Simultaneous browser and tool activity can get the account flagged.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== Settings ============================== -->
+    <section data-page="settings" class="space-y-4 sm:space-y-6" hidden>
+      <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Settings</h1>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Live settings of the running monitor</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn btn-light" data-action="generate-config"><i data-icon="document-arrow-down" class="w-4 h-4"></i>Generate config</button>
+          <button type="button" class="btn btn-primary" data-action="save-settings"><i data-icon="check" class="w-4 h-4"></i>Save settings</button>
+        </div>
+      </div>
+      <div class="alert alert-info" role="note">
+        <i data-icon="information-circle" class="w-5 h-5 shrink-0"></i>
+        <div>Saved settings apply to the running process right away and reset to the config file on restart. <span class="font-medium">Generate config</span> writes the current form to a new <code class="font-mono text-xs">.conf</code> file in the monitor's working directory.</div>
+      </div>
+      <div id="settings-nav" class="flex flex-wrap gap-2"></div>
+      <div id="settings-loading" class="grid gap-4 sm:gap-6 xl:grid-cols-2">
+        <div class="h-64 card skeleton"></div><div class="h-64 card skeleton"></div>
+      </div>
+      <form id="settings-form" class="grid items-start gap-4 sm:gap-6 xl:grid-cols-2" autocomplete="off" hidden></form>
+      <div id="settings-savebar" class="sticky z-10 flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-gray-200 rounded-lg shadow-lg bottom-4 dark:bg-gray-800 dark:border-gray-700" hidden>
+        <span class="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white"><i data-icon="exclamation-circle" class="w-5 h-5 text-yellow-500"></i>You have unsaved changes</span>
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-light btn-sm" data-action="discard-settings">Discard</button>
+          <button type="button" class="btn btn-primary btn-sm" data-action="save-settings"><i data-icon="check" class="w-4 h-4"></i>Save settings</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== Activity ============================== -->
+    <section data-page="activity" class="space-y-4 sm:space-y-6" hidden>
+      <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Activity log</h1>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Everything the monitor reported since it started</p>
+        </div>
+        <button type="button" class="btn btn-light" data-action="clear-activity"><i data-icon="trash" class="w-4 h-4"></i>Clear log</button>
+      </div>
+      <div class="card">
+        <div class="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+          <div class="seg" data-log-filter-group></div>
+          <div class="relative w-full sm:w-72">
+            <div class="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3 text-gray-500 dark:text-gray-400"><i data-icon="magnifying-glass" class="w-4 h-4"></i></div>
+            <input type="search" id="activity-search" class="form-input ps-9" placeholder="Search messages" autocomplete="off">
+          </div>
+        </div>
+        <ol class="p-4 sm:p-6" data-activity-feed="all"></ol>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toasts" class="fixed z-[70] flex flex-col items-end gap-2 bottom-4 end-4 start-4 sm:start-auto" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Basics
+// ---------------------------------------------------------------------------
+const VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '';
+const ICONS = /*__ICONS__*/{};
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function icon(name, cls = 'w-5 h-5') {
+  const paths = ICONS[name];
+  if (!paths) return '';
+  return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">${paths}</svg>`;
+}
+
+function hydrateIcons(root = document) {
+  $$('i[data-icon]', root).forEach(el => {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = icon(el.dataset.icon, el.getAttribute('class') || 'w-5 h-5');
+    if (tpl.content.firstChild) el.replaceWith(tpl.content.firstChild);
+  });
+}
+
+function escapeHtml(text) {
+  if (text == null) return '';
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+// Returns only browser-safe HTTP and HTTPS URLs
+function safeUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  try {
+    const url = new URL(String(value), window.location.origin);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.href;
+  } catch (_) {
+    return '';
+  }
+}
+
+// Returns a URL only when it points back at this dashboard, so media never loads from a third party.
+// A remote thumbnail would reveal the viewer's address to Instagram's CDN on every refresh
+function sameOriginUrl(value) {
+  const url = safeUrl(value);
+  if (!url) return '';
+  try {
+    return new URL(url).origin === window.location.origin ? url : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+// Recognizes story URLs even when older records omit the story flag
+function isStoryLink(value, isStory) {
+  if (isStory === true) return true;
+  const safe = safeUrl(value);
+  if (!safe) return false;
+  const url = new URL(safe);
+  return (url.hostname === 'instagram.com' || url.hostname.endsWith('.instagram.com')) && url.pathname.startsWith('/stories/');
+}
+
+function profileUrl(username) {
+  return `https://www.instagram.com/${encodeURIComponent(username)}/`;
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === '') return '–';
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString() : escapeHtml(value);
+}
+
+function formatDuration(seconds) {
+  seconds = Math.max(0, Math.round(seconds));
+  const d = Math.floor(seconds / 86400), h = Math.floor((seconds % 86400) / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function relativeFromTs(ts) {
+  if (!Number.isFinite(ts) || ts <= 0) return '';
+  const diff = ts - Date.now() / 1000;
+  if (Math.abs(diff) < 5) return 'now';
+  return diff > 0 ? `in ${formatDuration(diff)}` : `${formatDuration(-diff)} ago`;
+}
+
+// Replaces innerHTML only when the markup changed, so polling never resets hover or focus needlessly
+function setHTML(el, html) {
+  if (!el) return false;
+  if (el.__html === html) return false;
+  el.__html = html;
+  el.innerHTML = html;
+  hydrateIcons(el);
+  return true;
+}
+
+function setText(el, text) {
+  if (el && el.textContent !== String(text)) el.textContent = String(text);
+}
+
+// ---------------------------------------------------------------------------
+// API
+// ---------------------------------------------------------------------------
+async function getJSON(url) {
+  const response = await fetch(url, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
+  const data = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, data: data || {} };
+}
+
+// Sends one state-changing request with the JSON content type the server requires
+async function sendJSON(url, payload = {}, method = 'POST') {
+  const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload) });
+  const data = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, data: data || {} };
+}
+
+// Runs a dashboard action, reporting success or failure in a toast, and returns the response data or null
+async function runAction(request, { success, failure, busyEl } = {}) {
+  if (busyEl) busyEl.disabled = true;
+  try {
+    const { data } = await request();
+    if (data.success) {
+      const message = typeof success === 'function' ? success(data) : success;
+      if (message) toast(message, 'success');
+      return data;
+    }
+    toast(data.error || data.message || failure || 'Request failed', 'error');
+    return null;
+  } catch (err) {
+    toast(failure || 'Request failed', 'error');
+    return null;
+  } finally {
+    if (busyEl) busyEl.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const S = {
+  status: null,
+  targets: {},
+  activities: [],
+  settings: null,
+  session: null,
+  uiMode: 'user',
+  sort: 'asc',
+  logFilter: 'all',
+  activitySearch: '',
+  targetSearch: '',
+  lastOk: 0,
+  failures: 0,
+  shownErrorTs: null,
+  settingsBaseline: '',
+};
+
+// ---------------------------------------------------------------------------
+// Toasts and modals
+// ---------------------------------------------------------------------------
+const TOAST_STYLES = {
+  success: { icon: 'check-circle', cls: 'text-green-600 bg-green-100 dark:bg-green-800 dark:text-green-200' },
+  error: { icon: 'exclamation-triangle', cls: 'text-red-600 bg-red-100 dark:bg-red-800 dark:text-red-200' },
+  info: { icon: 'information-circle', cls: 'text-primary-600 bg-primary-100 dark:bg-primary-800 dark:text-primary-200' },
+};
+
+function toast(message, type = 'success') {
+  const style = TOAST_STYLES[type] || TOAST_STYLES.info;
+  const box = $('#toasts');
+  const el = document.createElement('div');
+  el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  el.className = 'flex items-center w-full max-w-sm gap-3 p-4 text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg transition-all duration-300 opacity-0 translate-y-2 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700';
+  el.innerHTML = `<div class="inline-flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${style.cls}">${icon(style.icon, 'w-5 h-5')}</div>
+    <div class="flex-1 min-w-0 text-sm font-normal break-words">${escapeHtml(message)}</div>
+    <button type="button" class="btn-icon btn-ghost -m-1.5" aria-label="Dismiss">${icon('x-mark', 'w-4 h-4')}</button>`;
+  const remove = () => { el.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => el.remove(), 300); };
+  el.querySelector('button').addEventListener('click', remove);
+  box.appendChild(el);
+  while (box.children.length > 4) box.firstElementChild.remove();
+  requestAnimationFrame(() => el.classList.remove('opacity-0', 'translate-y-2'));
+  setTimeout(remove, type === 'error' ? 7000 : 4000);
+}
+
+const MODAL_SIZES = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
+
+function openModal({ id, title, titleIcon = '', body = '', footer = '', size = 'md', dismissible = true, onClose = null, tone = '' }) {
+  closeModal(id, true);
+  const wrap = document.createElement('div');
+  wrap.dataset.modal = id;
+  wrap.className = 'fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 dark:bg-gray-900/80';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-labelledby', `modal-title-${id}`);
+  const toneCls = tone === 'danger' ? 'text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-300'
+    : tone === 'warning' ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-300'
+    : 'text-primary-700 bg-primary-100 dark:bg-primary-900 dark:text-primary-300';
+  wrap.innerHTML = `<div class="flex items-start justify-center min-h-full p-4 sm:items-center" data-modal-backdrop><div class="relative w-full ${MODAL_SIZES[size] || size} my-4 bg-white rounded-lg shadow-xl dark:bg-gray-800">
+      <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200 rounded-t md:px-5 dark:border-gray-700">
+        <h3 id="modal-title-${id}" class="flex items-center gap-3 text-lg font-semibold text-gray-900 dark:text-white">
+          ${titleIcon ? `<span class="flex items-center justify-center w-9 h-9 rounded-lg ${toneCls}">${icon(titleIcon, 'w-5 h-5')}</span>` : ''}${title}
+        </h3>
+        ${dismissible ? `<button type="button" class="btn-icon btn-ghost" data-action="modal-close" aria-label="Close">${icon('x-mark', 'w-5 h-5')}</button>` : ''}
+      </div>
+      <div class="p-4 space-y-4 md:p-5" data-modal-body>${body}</div>
+      ${footer ? `<div class="flex flex-wrap items-center justify-end gap-2 p-4 border-t border-gray-200 rounded-b md:px-5 dark:border-gray-700">${footer}</div>` : ''}
+    </div></div>`;
+  wrap._dismissible = dismissible;
+  wrap._onClose = onClose;
+  wrap._returnFocus = document.activeElement;
+  wrap.addEventListener('mousedown', e => { if (dismissible && (e.target === wrap || e.target.hasAttribute('data-modal-backdrop'))) closeModal(id); });
+  document.body.appendChild(wrap);
+  document.body.classList.add('overflow-hidden');
+  hydrateIcons(wrap);
+  setTimeout(() => {
+    const focusEl = wrap.querySelector('[autofocus]') || wrap.querySelector('input, select, textarea') || wrap.querySelector('[data-modal-body] button, [data-modal-body] a') || wrap.querySelector('button');
+    if (focusEl) focusEl.focus();
+  }, 30);
+  return wrap;
+}
+
+function closeModal(idOrEl, silent = false) {
+  const el = typeof idOrEl === 'string' ? $(`[data-modal="${CSS.escape(idOrEl)}"]`) : idOrEl;
+  if (!el) return;
+  const onClose = el._onClose;
+  const returnFocus = el._returnFocus;
+  el.remove();
+  if (!$('[data-modal]')) document.body.classList.remove('overflow-hidden');
+  if (!silent && typeof onClose === 'function') onClose();
+  if (returnFocus && typeof returnFocus.focus === 'function' && document.contains(returnFocus)) returnFocus.focus();
+}
+
+function topModal() {
+  const all = $$('[data-modal]');
+  return all.length ? all[all.length - 1] : null;
+}
+
+function confirmDialog({ title, message, confirmText = 'Confirm', tone = 'danger', titleIcon = 'exclamation-triangle' }) {
+  return new Promise(resolve => {
+    let answered = false;
+    const finish = value => { if (!answered) { answered = true; resolve(value); } };
+    const btnCls = tone === 'danger' ? 'btn-danger' : 'btn-primary';
+    const modal = openModal({
+      id: 'confirm', title: escapeHtml(title), titleIcon, tone, size: 'sm',
+      body: `<p class="text-sm text-gray-600 dark:text-gray-300">${escapeHtml(message)}</p>`,
+      footer: `<button type="button" class="btn btn-light" data-confirm="no">Cancel</button><button type="button" class="btn ${btnCls}" data-confirm="yes" autofocus>${escapeHtml(confirmText)}</button>`,
+      onClose: () => finish(false),
+    });
+    modal.addEventListener('click', e => {
+      const btn = e.target.closest('[data-confirm]');
+      if (!btn) return;
+      finish(btn.dataset.confirm === 'yes');
+      closeModal(modal, true);
+    });
+  });
+}
+
+function promptDialog({ title, message = '', label, value = '', confirmText = 'OK', help = '' }) {
+  return new Promise(resolve => {
+    let answered = false;
+    const finish = v => { if (!answered) { answered = true; resolve(v); } };
+    const modal = openModal({
+      id: 'prompt', title: escapeHtml(title), titleIcon: 'document-text', size: 'sm',
+      body: `${message ? `<p class="text-sm text-gray-600 dark:text-gray-300">${escapeHtml(message)}</p>` : ''}
+        <div><label for="prompt-input" class="form-label">${escapeHtml(label)}</label>
+        <input id="prompt-input" class="form-input" type="text" value="${escapeHtml(value)}" autocomplete="off" spellcheck="false">
+        ${help ? `<p class="form-help">${escapeHtml(help)}</p>` : ''}</div>`,
+      footer: `<button type="button" class="btn btn-light" data-prompt="cancel">Cancel</button><button type="button" class="btn btn-primary" data-prompt="ok">${escapeHtml(confirmText)}</button>`,
+      onClose: () => finish(null),
+    });
+    const input = modal.querySelector('#prompt-input');
+    const submit = () => { finish(input.value.trim() || null); closeModal(modal, true); };
+    modal.addEventListener('click', e => {
+      const btn = e.target.closest('[data-prompt]');
+      if (!btn) return;
+      if (btn.dataset.prompt === 'ok') submit(); else { finish(null); closeModal(modal, true); }
+    });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    setTimeout(() => { input.focus(); input.select(); }, 40);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Theme and navigation
+// ---------------------------------------------------------------------------
+const THEMES = [
+  { mode: 'system', icon: 'computer-desktop', label: 'Theme: system' },
+  { mode: 'light', icon: 'sun', label: 'Theme: light' },
+  { mode: 'dark', icon: 'moon', label: 'Theme: dark' },
+];
+
+function currentTheme() {
+  try { return localStorage.getItem('igm-theme') || 'system'; } catch (_) { return 'system'; }
+}
+
+function applyTheme(mode) {
+  const dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.classList.toggle('dark', dark);
+  const theme = THEMES.find(t => t.mode === mode) || THEMES[0];
+  const btn = $('#theme-button');
+  btn.innerHTML = icon(theme.icon, 'w-5 h-5');
+  btn.title = theme.label;
+  btn.setAttribute('aria-label', `${theme.label} (click to change)`);
+}
+
+function cycleTheme() {
+  const idx = THEMES.findIndex(t => t.mode === currentTheme());
+  const next = THEMES[(idx + 1) % THEMES.length].mode;
+  try { localStorage.setItem('igm-theme', next); } catch (_) {}
+  applyTheme(next);
+  toast(THEMES.find(t => t.mode === next).label, 'info');
+}
+
+const PAGES = ['overview', 'targets', 'session', 'settings', 'activity'];
+const PAGE_TITLES = { overview: 'Overview', targets: 'Targets', session: 'Session', settings: 'Settings', activity: 'Activity log' };
+
+function showPage() {
+  let page = (location.hash || '').replace('#', '');
+  if (!PAGES.includes(page)) page = 'overview';
+  $$('[data-page]').forEach(sec => { sec.hidden = sec.dataset.page !== page; });
+  $$('[data-page-link]').forEach(link => {
+    const active = link.dataset.pageLink === page;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+  });
+  document.title = `${PAGE_TITLES[page]} · Instagram Monitor`;
+  setSidebar(false);
+  if (page === 'settings' && !S.settings) fetchSettings();
+  if (page === 'session') fetchSessionDetails();
+  window.scrollTo({ top: 0 });
+}
+
+function setSidebar(open) {
+  $('#sidebar').classList.toggle('-translate-x-full', !open);
+  $('#sidebar-backdrop').hidden = !open;
+}
+
+// ---------------------------------------------------------------------------
+// Status polling and rendering
+// ---------------------------------------------------------------------------
+async function fetchStatus() {
+  try {
+    const { ok, data } = await getJSON('/api/status');
+    if (!ok) throw new Error('status');
+    S.failures = 0;
+    S.lastOk = Date.now();
+    $('#connection-banner').hidden = true;
+    updateDashboard(data);
+  } catch (err) {
+    S.failures += 1;
+    if (S.failures >= 2) $('#connection-banner').hidden = false;
+    setGlobalStatus('error', 'Disconnected');
+  }
+}
+
+function setGlobalStatus(kind, text) {
+  const dot = $('#global-status-dot');
+  const ping = $('#global-status-ping');
+  const colors = { live: 'bg-green-500', idle: 'bg-gray-400', error: 'bg-red-500' };
+  dot.className = `relative inline-flex w-2.5 h-2.5 rounded-full ${colors[kind] || colors.idle}`;
+  ping.className = kind === 'live' ? 'absolute inline-flex w-full h-full rounded-full opacity-75 bg-green-400 animate-ping' : 'hidden';
+  setText($('#global-status-text'), text);
+}
+
+function updateDashboard(data) {
+  S.status = data;
+
+  // A critical error stops the monitor, so it takes over the page until reloaded
+  if (data.error) {
+    showCriticalError(data.error);
+    return;
+  }
+
+  const mode = data.dashboard_mode || data.ui_mode;
+  if (mode && mode !== S.uiMode) {
+    S.uiMode = mode;
+    renderUIMode();
+  }
+
+  S.targets = data.targets || {};
+  const targetEntries = Object.values(S.targets);
+  const monitoringCount = targetEntries.filter(t => t.status && !['idle', 'stopped'].includes(String(t.status).toLowerCase())).length;
+  const monitoring = Boolean(data.is_monitoring) || monitoringCount > 0;
+  setGlobalStatus(monitoring ? 'live' : 'idle', monitoring ? `Monitoring (${monitoringCount})` : 'Idle');
+
+  setText($('#server-uptime'), data.uptime || '–');
+  setText($('#tool-version'), data.version || VERSION || '–');
+
+  renderStats(data);
+  renderOverviewAlerts(data);
+  renderTargets();
+  renderLastFetched();
+  if (data.config) renderConfig(data.config);
+  if (data.session) updateSessionDisplay(data.session);
+  renderSidebarSession();
+  if (Array.isArray(data.activities)) {
+    S.activities = data.activities;
+    renderActivities();
+  }
+  renderRelativeTimes();
+}
+
+function renderStats(data) {
+  const count = Object.keys(S.targets).length;
+  const active = Object.values(S.targets).filter(t => t.status && !['idle', 'stopped'].includes(String(t.status).toLowerCase())).length;
+  setText($('#stat-targets'), count);
+  setText($('#stat-targets-sub'), count ? `${active} being monitored` : 'No targets yet');
+  setText($('#stat-checks'), (data.check_count || 0).toLocaleString());
+  setText($('#stat-checks-sub'), data.uptime ? `Running for ${data.uptime}` : ' ');
+  setText($('#stat-last'), data.last_check || '–');
+  setText($('#stat-next'), data.next_check || '–');
+
+  const sessionUser = (data.config && data.config.session_user) || (data.session && data.session.username);
+  const subtitle = count
+    ? `Watching ${count} account${count === 1 ? '' : 's'}${sessionUser && sessionUser !== '-' ? ` as @${sessionUser}` : ' without a login'}`
+    : 'Add an Instagram account to start monitoring';
+  setText($('#overview-subtitle'), subtitle);
+
+  const navCount = $('#nav-targets-count');
+  navCount.hidden = !count;
+  setText(navCount, count);
+}
+
+function lastCheckedTs() {
+  const values = Object.values(S.targets).map(t => Number(t.last_checked_ts)).filter(v => Number.isFinite(v) && v > 0);
+  return values.length ? Math.max(...values) : null;
+}
+
+function nextCheckTs() {
+  const now = Date.now() / 1000;
+  const values = Object.values(S.targets).map(t => Number(t.next_check_ts)).filter(v => Number.isFinite(v) && v > now - 60);
+  return values.length ? Math.min(...values) : null;
+}
+
+// Refreshes every relative time on screen once a second, without waiting for the next poll
+function renderRelativeTimes() {
+  const last = lastCheckedTs();
+  const next = nextCheckTs();
+  setText($('#stat-last-sub'), last ? relativeFromTs(last) : ' ');
+  setText($('#stat-next-sub'), next ? relativeFromTs(next) : ' ');
+  $$('[data-rel-ts]').forEach(el => setText(el, relativeFromTs(Number(el.dataset.relTs))));
+  const live = $('#live-indicator');
+  if (S.lastOk) setText(live, S.failures >= 2 ? 'Lost' : `${formatDuration((Date.now() - S.lastOk) / 1000)} ago`);
+}
+
+function renderOverviewAlerts(data) {
+  const alerts = [];
+  const cfg = data.config || {};
+  if (cfg.circuit_breaker === true) {
+    alerts.push(`<div class="alert alert-error" role="alert">${icon('shield-exclamation', 'w-5 h-5 shrink-0')}<div><span class="font-medium">The account safety stop is tripped.</span> Instagram acted against the session account, so the monitor makes no Instagram requests for it. Check the activity log and the account in a browser before clearing it with <code class="font-mono text-xs">--clear-breaker</code>.</div></div>`);
+  }
+  const statuses = Object.entries(S.targets).filter(([, t]) => /error|breaker|fail/i.test(String(t.status || '')));
+  statuses.forEach(([name, t]) => {
+    alerts.push(`<div class="alert alert-warning" role="status">${icon('exclamation-triangle', 'w-5 h-5 shrink-0')}<div><span class="font-medium">@${escapeHtml(name)}:</span> ${escapeHtml(t.status)}</div></div>`);
+  });
+  setHTML($('#overview-alerts'), alerts.join(''));
+}
+
+function statusBadgeClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (!s) return 'badge-idle';
+  if (/error|breaker|fail/.test(s)) return 'badge-error';
+  if (s === 'ok' || s === 'monitoring' || s === 'running') return 'badge-success';
+  if (/waiting|sleep/.test(s)) return 'badge-info';
+  if (/check|fetch|download|load|start|pend|process/.test(s)) return 'badge-warning';
+  return 'badge-idle';
+}
+
+function getSortedTargets() {
+  const entries = Object.entries(S.targets);
+  entries.sort((a, b) => S.sort === 'asc' ? a[0].toLowerCase().localeCompare(b[0].toLowerCase()) : b[0].toLowerCase().localeCompare(a[0].toLowerCase()));
+  return entries;
+}
+
+function avatar(name, size = 'w-9 h-9 text-sm') {
+  const palette = ['from-pink-500 to-orange-400', 'from-purple-500 to-pink-500', 'from-primary-500 to-purple-500', 'from-teal-400 to-primary-500', 'from-orange-400 to-yellow-400'];
+  let hash = 0;
+  for (const ch of String(name)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return `<span class="flex items-center justify-center ${size} font-semibold text-white rounded-full shrink-0 bg-gradient-to-br ${palette[hash % palette.length]}">${escapeHtml(String(name).charAt(0).toUpperCase() || '?')}</span>`;
+}
+
+function targetCell(name, data, withVisibility = false) {
+  const displayName = data.display_name || name;
+  const vis = withVisibility && (data.is_private === true || data.is_private === false)
+    ? ` <span class="inline-flex items-center gap-0.5 ms-1 ${data.is_private ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}" title="${data.is_private ? 'Private' : 'Public'} account">${icon(data.is_private ? 'lock-closed' : 'globe-alt', 'w-3 h-3')}${data.is_private ? 'Private' : 'Public'}</span>` : '';
+  return `<div class="flex items-center gap-3">${avatar(displayName)}<div class="min-w-0">
+    <a href="${profileUrl(name)}" target="_blank" rel="noopener noreferrer" class="block font-semibold text-gray-900 truncate hover:underline dark:text-white">${escapeHtml(displayName)}</a>
+    <span class="block text-xs text-gray-500 truncate dark:text-gray-400">@${escapeHtml(name)}${vis}</span></div></div>`;
+}
+
+function visibilityBadge(isPrivate) {
+  if (isPrivate === true) return `<span class="badge badge-warning">${icon('lock-closed', 'w-3 h-3')}Private</span>`;
+  if (isPrivate === false) return `<span class="badge badge-success">${icon('globe-alt', 'w-3 h-3')}Public</span>`;
+  return '<span class="text-gray-400">–</span>';
+}
+
+function storyCell(data) {
+  if (data.has_story) {
+    return `<span class="inline-flex items-center gap-1 font-medium text-pink-600 dark:text-pink-400">${icon('sparkles', 'w-4 h-4')}${data.stories_count > 0 ? escapeHtml(data.stories_count) : 'Yes'}</span>`;
+  }
+  if (data.has_story === false) return '<span class="text-gray-500 dark:text-gray-400">No</span>';
+  return '<span class="text-gray-400">–</span>';
+}
+
+function actionButtons(name, which) {
+  const attr = `data-target="${escapeHtml(name)}"`;
+  const buttons = {
+    recheck: `<button type="button" class="btn-icon btn-ghost" data-action="target-recheck" ${attr} title="Recheck now" aria-label="Recheck ${escapeHtml(name)}">${icon('arrow-path', 'w-5 h-5')}</button>`,
+    analysis: `<button type="button" class="btn-icon btn-ghost" data-action="target-analysis" ${attr} title="Follow analysis" aria-label="Follow analysis for ${escapeHtml(name)}">${icon('chart-bar', 'w-5 h-5')}</button>`,
+    start: `<button type="button" class="btn-icon btn-ghost" data-action="target-start" ${attr} title="Start monitoring" aria-label="Start ${escapeHtml(name)}">${icon('play', 'w-5 h-5')}</button>`,
+    stop: `<button type="button" class="btn-icon btn-ghost" data-action="target-stop" ${attr} title="Stop monitoring" aria-label="Stop ${escapeHtml(name)}">${icon('stop', 'w-5 h-5')}</button>`,
+    remove: `<button type="button" class="btn-icon btn-ghost-danger" data-action="target-remove" ${attr} title="Remove target" aria-label="Remove ${escapeHtml(name)}">${icon('trash', 'w-5 h-5')}</button>`,
+  };
+  return `<div class="flex items-center justify-end gap-0.5">${which.map(k => buttons[k]).join('')}</div>`;
+}
+
+function emptyTargetsRow(colspan) {
+  return `<tr><td colspan="${colspan}" class="px-4 py-12 text-center">
+    <div class="flex flex-col items-center gap-3">
+      <span class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">${icon('users', 'w-6 h-6')}</span>
+      <div><p class="font-medium text-gray-900 dark:text-white">No targets yet</p><p class="text-sm text-gray-500 dark:text-gray-400">Add an Instagram account to start monitoring.</p></div>
+      <button type="button" class="btn btn-primary btn-sm" data-action="open-add-target">${icon('plus', 'w-4 h-4')}Add target</button>
+    </div></td></tr>`;
+}
+
+function renderTargets() {
+  const entries = getSortedTargets();
+  const indicator = icon(S.sort === 'asc' ? 'chevron-up' : 'chevron-down', 'w-3.5 h-3.5');
+  $$('[data-sort-indicator]').forEach(el => setHTML(el, indicator));
+
+  if (!entries.length) {
+    setHTML($('#targets-simple-body'), emptyTargetsRow(9));
+    setHTML($('#targets-config-body'), emptyTargetsRow(9));
+    setHTML($('#targets-page-body'), emptyTargetsRow(7));
+    setText($('#targets-count-label'), '');
+    return;
+  }
+
+  const countsRow = (name, data, actions) => `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+      <td class="td">${targetCell(name, data)}</td>
+      <td class="td">${visibilityBadge(data.is_private)}</td>
+      <td class="text-right td tabular-nums">${formatNumber(data.followers)}</td>
+      <td class="text-right td tabular-nums">${formatNumber(data.following)}</td>
+      <td class="text-right td tabular-nums">${formatNumber(data.posts)}</td>
+      <td class="text-right td tabular-nums">${formatNumber(data.reels)}</td>
+      <td class="td">${storyCell(data)}</td>
+      <td class="td"><span class="badge ${statusBadgeClass(data.status)}">${escapeHtml(data.status || 'Idle')}</span></td>
+      <td class="td">${actionButtons(name, actions)}</td>
+    </tr>`;
+
+  setHTML($('#targets-simple-body'), entries.map(([n, d]) => countsRow(n, d, ['analysis'])).join(''));
+  setHTML($('#targets-config-body'), entries.map(([n, d]) => countsRow(n, d, ['recheck', 'analysis', 'start', 'stop', 'remove'])).join(''));
+
+  const query = S.targetSearch.trim().toLowerCase();
+  const filtered = query ? entries.filter(([n, d]) => n.toLowerCase().includes(query) || String(d.display_name || '').toLowerCase().includes(query)) : entries;
+  setText($('#targets-count-label'), query ? `${filtered.length} of ${entries.length} targets` : `${entries.length} target${entries.length === 1 ? '' : 's'}`);
+  const sched = (label, value, ts) => `<span class="flex items-baseline gap-1.5"><span class="w-9 text-xs text-gray-500 dark:text-gray-400">${label}</span><span class="tabular-nums">${escapeHtml(value)}</span>${ts ? `<span class="text-xs text-gray-500 dark:text-gray-400" data-rel-ts="${Number(ts)}"></span>` : ''}</span>`;
+  const pageRows = filtered.map(([name, data]) => `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+      <td class="td">${targetCell(name, data, true)}</td>
+      <td class="text-right td tabular-nums">${formatNumber(data.followers)}</td>
+      <td class="text-right td tabular-nums">${formatNumber(data.following)}</td>
+      <td class="hidden text-gray-500 td dark:text-gray-400 2xl:table-cell">${escapeHtml(data.added || '–')}</td>
+      <td class="td">${sched('Last', data.last_checked || 'Never', data.last_checked_ts)}${sched('Next', data.next_check || '–', data.next_check_ts)}</td>
+      <td class="td"><span class="badge ${statusBadgeClass(data.status)}">${escapeHtml(data.status || 'Idle')}</span></td>
+      <td class="td">${actionButtons(name, ['recheck', 'analysis', 'start', 'stop', 'remove'])}</td>
+    </tr>`).join('');
+  setHTML($('#targets-page-body'), pageRows || `<tr><td colspan="7" class="px-4 py-10 text-sm text-center text-gray-500 dark:text-gray-400">No targets match “${escapeHtml(S.targetSearch)}”.</td></tr>`);
+}
+
+// Keeps story destinations off navigable links until the viewer confirms
+function renderContentLink(url, label, isStory, variant = 'link') {
+  if (!url) return '';
+  const cls = variant === 'badge'
+    ? 'badge badge-info hover:underline cursor-pointer ms-2'
+    : 'inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:underline dark:text-primary-500';
+  if (isStory) {
+    return `<button type="button" class="${cls}" data-action="open-story" data-url="${escapeHtml(url)}" aria-haspopup="dialog">${escapeHtml(label)}</button>`;
+  }
+  return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="${cls}">${escapeHtml(label)}</a>`;
+}
+
+function renderLastFetched() {
+  let updates = [];
+  for (const [name, t] of Object.entries(S.targets)) {
+    if (Array.isArray(t.fetched_updates)) {
+      updates.push(...t.fetched_updates.map(u => ({ user: name, ...u })));
+    } else {
+      if (t.last_post) updates.push({ ...t.last_post, user: name });
+      if (t.last_story) updates.push({ ...t.last_story, user: name });
+    }
+  }
+  updates.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+  const seen = new Set();
+  updates = updates.filter(u => {
+    const key = (u.post_url || '') + (u.url || '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 10);
+
+  const container = $('#last-fetched');
+  if (!updates.length) {
+    setHTML(container, `<div class="flex flex-col items-center gap-3 py-8 text-center">
+      <span class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">${icon('photo', 'w-6 h-6')}</span>
+      <p class="text-sm text-gray-500 dark:text-gray-400">No posts, reels or stories fetched yet.</p></div>`);
+    return;
+  }
+
+  setHTML(container, `<ul class="grid gap-4 sm:grid-cols-2">${updates.map(u => {
+    const thumb = sameOriginUrl(u.url);
+    const postUrl = safeUrl(u.post_url);
+    const story = isStoryLink(postUrl, u.is_story);
+    const video = sameOriginUrl(u.video_url);
+    const media = video
+      ? `<button type="button" class="inline-flex items-center gap-1 text-xs font-semibold text-green-600 hover:underline dark:text-green-400" data-action="play-video" data-url="${escapeHtml(video)}">${icon('play-circle', 'w-4 h-4')}Play video</button>`
+      : (thumb ? `<a href="${escapeHtml(thumb)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 hover:underline dark:text-gray-300">${icon('photo', 'w-4 h-4')}View media</a>` : '');
+    return `<li class="flex min-w-0 gap-3 p-3 border border-gray-200 rounded-lg dark:border-gray-700">
+      ${thumb ? `<img src="${escapeHtml(thumb)}" loading="lazy" alt="" class="object-cover w-20 h-20 rounded-lg shrink-0 bg-gray-100 dark:bg-gray-700">`
+        : `<span class="flex items-center justify-center w-20 h-20 rounded-lg shrink-0 bg-gray-100 text-gray-400 dark:bg-gray-700">${icon(story ? 'sparkles' : 'photo', 'w-7 h-7')}</span>`}
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-gray-900 truncate dark:text-white">${escapeHtml(u.type || 'Update')}${u.user ? ` <span class="font-normal text-gray-500 dark:text-gray-400">· @${escapeHtml(u.user)}</span>` : ''}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(u.timestamp || '–')}</p>
+        <p class="mt-1 text-sm text-gray-600 line-clamp-2 dark:text-gray-300">${escapeHtml(u.caption || '')}</p>
+        <div class="flex flex-wrap items-center gap-3 mt-2">${renderContentLink(postUrl, story ? 'View story' : 'View post', story)}${media}</div>
+      </div></li>`;
+  }).join('')}</ul>`);
+}
+
+function boolText(value) {
+  if (value === true || value === 'True' || value === 'true') return '<span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 bg-green-500 rounded-full"></span>On</span>';
+  if (value === false || value === 'False' || value === 'false') return '<span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 bg-gray-300 rounded-full dark:bg-gray-500"></span>Off</span>';
+  if (value === null || value === undefined || value === '') return '<span class="text-gray-400">–</span>';
+  return escapeHtml(value);
+}
+
+function breakerText(value) {
+  if (value === true) return '<span class="badge badge-error">Tripped</span>';
+  if (value === false) return '<span class="badge badge-success">Armed</span>';
+  return '<span class="badge badge-idle">Off</span>';
+}
+
+function renderConfig(c) {
+  const enabled = v => v ? 'Enabled' : 'Disabled';
+  const groups = [
+    { title: 'Session and schedule', icon: 'clock', items: [
+      ['Session user', c.session_user], ['Session mode', c.session_mode], ['Skip session', c.skip_session_login],
+      ['Polling interval', c.check_interval_str], ['Hours range', c.hours_range], ['Liveness', c.liveness_check],
+      ['Started', c.start_time],
+    ] },
+    { title: 'Tracking', icon: 'adjustments-horizontal', items: [
+      ['Skip followers', c.skip_followers], ['Skip followings', c.skip_followings], ['Skip follow changes', c.skip_follow_changes],
+      ['Follower churn detection', c.followers_churn], ['Skip stories details', c.skip_stories], ['Skip posts details', c.skip_posts],
+      ['Get more posts details', c.get_more_post_details], ['Detect collab posts', c.detect_collab_posts], ['Fetch reels', c.fetch_reels],
+      ['Profile pic detect', c.profile_pic_changes], ['Be Human mode', c.human_mode], ['Jitter / back-off', c.enable_jitter],
+    ] },
+    { title: 'Account safety', icon: 'shield-check', items: [
+      ['Identity budget', c.identity_budget ? `${Number(c.identity_budget).toLocaleString()} names / day` : 'Off'],
+      ['Circuit breaker', { html: breakerText(c.circuit_breaker) }],
+    ] },
+    { title: 'Notifications', icon: 'bell', items: [
+      ['Email status', enabled(c.email_notifications)], ['Email followers', enabled(c.follower_notifications)], ['Email errors', enabled(c.error_notifications)],
+      ['Webhook', c.webhook_enabled], ['Webhook provider', c.webhook_provider === 'discord' ? 'Discord' : c.webhook_provider],
+      ['Webhook status', enabled(c.webhook_status)], ['Webhook followers', enabled(c.webhook_followers)], ['Webhook errors', enabled(c.webhook_errors)],
+    ] },
+    { title: 'Output and display', icon: 'document-text', items: [
+      ['Dashboard', c.dashboard_status], ['Web dashboard', c.web_dashboard_status], ['Show check seconds', c.dashboard_show_check_seconds],
+      ['Display profile pics', c.imgcat], ['Empty pic template', c.empty_profile_pic], ['CSV logging', c.csv_logging],
+      ['Output logging', c.logging_enabled], ['Output dir', (c.output_dir === '.' || !c.output_dir) ? '-' : c.output_dir],
+      ['Templates', c.template_dir], ['Debug mode', c.debug_mode], ['Verbose mode', c.verbose_mode], ['Hours verbose', c.hours_verbose],
+    ] },
+    { title: 'Network', icon: 'signal', items: [
+      ['Proxy for Instagram', enabled(c.proxy_enabled)], ['Proxy for webhooks', enabled(c.proxy_webhooks)],
+      ['Proxy URL', c.proxy_url ? c.proxy_url.substring(0, 50) + (c.proxy_url.length > 50 ? '…' : '') : ''], ['Proxy certificate', c.proxy_cert || ''],
+    ] },
+  ];
+  const item = ([label, value]) => `<div class="min-w-0"><dt class="dl-term">${escapeHtml(label)}</dt><dd class="dl-desc">${value && typeof value === 'object' && 'html' in value ? value.html : boolText(value)}</dd></div>`;
+  setHTML($('#config-groups'), groups.map(g => `<div>
+      <h3 class="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-900 dark:text-white">${icon(g.icon, 'w-4 h-4 text-gray-500 dark:text-gray-400')}${escapeHtml(g.title)}</h3>
+      <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">${g.items.map(item).join('')}</dl>
+    </div>`).join('<hr class="border-gray-200 dark:border-gray-700">'));
+
+  const env = [
+    ['Browser user agent', c.user_agent || '-'], ['Mobile user agent', c.user_agent_mobile || '-'], ['HTTP backend', c.http_backend],
+    ['Impersonated browser', c.http_backend === 'curl_cffi' ? (c.impersonate || 'auto') : '-'], ['Follower list source', c.follow_list_source],
+    ['Local timezone', c.local_timezone], ['Config file', c.config_file], ['Dotenv file', c.dotenv_file],
+  ];
+  setHTML($('#env-details'), env.map(([l, v]) => `<div class="min-w-0"><dt class="dl-term">${escapeHtml(l)}</dt><dd class="dl-desc ${/agent|file/i.test(l) ? 'font-mono text-xs' : ''}">${boolText(v)}</dd></div>`).join(''));
+
+  const side = $('#side-breaker');
+  side.className = `badge ${c.circuit_breaker === true ? 'badge-error' : c.circuit_breaker === false ? 'badge-success' : 'badge-idle'}`;
+  setText(side, c.circuit_breaker === true ? 'Tripped' : c.circuit_breaker === false ? 'Armed' : 'Off');
+}
+
+function renderUIMode() {
+  $$('[data-action="set-mode"]').forEach(btn => {
+    const active = btn.dataset.mode === S.uiMode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  $('#overview-user').hidden = S.uiMode !== 'user';
+  $('#overview-config').hidden = S.uiMode !== 'config';
+}
+
+async function setUIMode(mode) {
+  if (mode !== 'user' && mode !== 'config' || mode === S.uiMode) return;
+  const data = await runAction(() => sendJSON('/api/mode', { mode }), { success: `Switched to ${mode} view`, failure: 'Failed to switch view' });
+  if (data) {
+    S.uiMode = mode;
+    renderUIMode();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Activity
+// ---------------------------------------------------------------------------
+const LOG_LEVELS = [
+  { value: 'all', label: 'All' },
+  { value: 'update', label: 'Updates' },
+  { value: 'system', label: 'System' },
+  { value: 'error', label: 'Errors' },
+];
+const LEVEL_STYLES = {
+  update: { badge: 'badge-info', dot: 'bg-primary-500', label: 'Update', icon: 'bolt' },
+  system: { badge: 'badge-idle', dot: 'bg-gray-400', label: 'System', icon: 'cpu-chip' },
+  error: { badge: 'badge-error', dot: 'bg-red-500', label: 'Error', icon: 'exclamation-triangle' },
+};
+
+function renderLogFilters() {
+  const html = LOG_LEVELS.map(l => `<button type="button" class="seg-btn${S.logFilter === l.value ? ' active' : ''}" data-action="log-filter" data-level="${l.value}" aria-pressed="${S.logFilter === l.value}">${l.label}</button>`).join('');
+  $$('[data-log-filter-group]').forEach(el => setHTML(el, html));
+}
+
+function activityItem(a) {
+  const level = LEVEL_STYLES[a.level] ? a.level : 'system';
+  const style = LEVEL_STYLES[level];
+  let link = '';
+  if (a.details && a.details.url) {
+    const url = safeUrl(a.details.url);
+    link = renderContentLink(url, 'View', isStoryLink(url, a.details.is_story), 'badge');
+  }
+  return `<li class="relative pb-5 ps-7 last:pb-0">
+      <span class="absolute top-1.5 start-0 flex w-3 h-3 rounded-full ring-4 ring-white dark:ring-gray-800 ${style.dot}"></span>
+      <span class="absolute top-5 bottom-0 start-[5px] w-px bg-gray-200 dark:bg-gray-700" data-line></span>
+      <div class="flex flex-wrap items-center gap-2 mb-1">
+        <time class="text-xs font-medium text-gray-500 tabular-nums dark:text-gray-400">${escapeHtml(a.time || '')}</time>
+        <span class="badge ${style.badge}">${style.label}</span>
+      </div>
+      <p class="text-sm text-gray-900 break-words dark:text-gray-100">${escapeHtml(a.message)}${link}</p>
+    </li>`;
+}
+
+function emptyActivity(text) {
+  return `<li class="flex flex-col items-center gap-3 py-8 text-center list-none">
+    <span class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">${icon('clipboard-document-list', 'w-6 h-6')}</span>
+    <p class="text-sm text-gray-500 dark:text-gray-400">${escapeHtml(text)}</p></li>`;
+}
+
+function renderActivities() {
+  renderLogFilters();
+  const byLevel = S.activities.filter(a => S.logFilter === 'all' || (a.level || 'system') === S.logFilter);
+  const recent = byLevel.slice(0, 10);
+  const recentHtml = recent.length ? recent.map(activityItem).join('') : emptyActivity(S.activities.length ? 'No activity matches this filter' : 'No activity yet');
+  $$('[data-activity-feed="recent"]').forEach(el => setHTML(el, recentHtml));
+
+  const q = S.activitySearch.trim().toLowerCase();
+  const all = q ? byLevel.filter(a => String(a.message || '').toLowerCase().includes(q)) : byLevel;
+  setHTML($('[data-activity-feed="all"]'), all.length ? all.map(activityItem).join('') : emptyActivity(S.activities.length ? 'No activity matches these filters' : 'No activity yet'));
+
+  const errors = S.activities.filter(a => a.level === 'error').length;
+  const badge = $('#nav-activity-errors');
+  badge.hidden = !errors;
+  setText(badge, errors);
+}
+
+async function clearActivity() {
+  const ok = await confirmDialog({ title: 'Clear activity log?', message: 'This removes every entry from the dashboard log. The log file on disk is not affected.', confirmText: 'Clear log' });
+  if (!ok) return;
+  const data = await runAction(() => sendJSON('/api/activity/clear'), { success: 'Activity log cleared', failure: 'Failed to clear the activity log' });
+  if (data) {
+    S.activities = [];
+    renderActivities();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Target actions
+// ---------------------------------------------------------------------------
+function openAddTarget() {
+  const modal = openModal({
+    id: 'add-target', title: 'Add target', titleIcon: 'user-plus',
+    body: `<div>
+        <label for="new-target-username" class="form-label">Instagram username</label>
+        <div class="relative">
+          <div class="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3 text-gray-500 dark:text-gray-400">${icon('at-symbol', 'w-4 h-4')}</div>
+          <input type="text" id="new-target-username" class="form-input ps-9" placeholder="username" autocomplete="off" spellcheck="false" autofocus>
+        </div>
+      </div>
+      <label class="flex items-center justify-between gap-4 cursor-pointer">
+        <span><span class="block text-sm font-medium text-gray-900 dark:text-white">Start monitoring immediately</span><span class="block text-xs text-gray-500 dark:text-gray-400">Begin monitoring after adding</span></span>
+        <input type="checkbox" id="start-immediately" class="sr-only peer" checked><span class="toggle-track"></span>
+      </label>`,
+    footer: `<button type="button" class="btn btn-light" data-action="modal-close">Cancel</button><button type="button" class="btn btn-primary" data-action="add-target">${icon('plus', 'w-4 h-4')}Add target</button>`,
+  });
+  modal.querySelector('#new-target-username').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addTarget(); } });
+}
+
+async function addTarget() {
+  const input = $('#new-target-username');
+  if (!input) return;
+  const username = input.value.trim().replace(/^@/, '').toLowerCase();
+  const start = $('#start-immediately').checked;
+  if (!username) {
+    input.classList.add('is-invalid');
+    toast('Please enter a username', 'error');
+    return;
+  }
+  const data = await runAction(() => sendJSON('/api/targets', { username, start }), { success: `Added target: ${username}`, failure: 'Failed to add target' });
+  if (data) {
+    closeModal('add-target');
+    fetchStatus();
+  }
+}
+
+async function removeTarget(username) {
+  const ok = await confirmDialog({ title: `Remove @${username}?`, message: `Stop monitoring ${username} and remove it from the target list.`, confirmText: 'Remove target' });
+  if (!ok) return;
+  const data = await runAction(() => sendJSON(`/api/targets/${encodeURIComponent(username)}`, {}, 'DELETE'), { success: `Removed target: ${username}`, failure: 'Failed to remove target' });
+  if (data) fetchStatus();
+}
+
+async function startMonitoring(username) {
+  const data = await runAction(() => sendJSON('/api/monitoring/start', username ? { target: username } : {}), {
+    success: username ? `Started monitoring: ${username}` : 'Started all monitoring', failure: 'Failed to start monitoring',
+  });
+  if (data) fetchStatus();
+}
+
+async function stopMonitoring(username) {
+  if (!username) {
+    const ok = await confirmDialog({ title: 'Stop all monitoring?', message: 'Every target stops being checked until you start it again.', confirmText: 'Stop all' });
+    if (!ok) return;
+  }
+  const data = await runAction(() => sendJSON('/api/monitoring/stop', username ? { target: username } : {}), {
+    success: username ? `Stopped monitoring: ${username}` : 'Stopped all monitoring', failure: 'Failed to stop monitoring',
+  });
+  if (data) fetchStatus();
+}
+
+async function triggerCheck(username) {
+  // The server rejects a recheck it cannot run with success false and the reason in "message"
+  try {
+    const { data } = await sendJSON('/api/trigger-check', username ? { target: username } : {});
+    if (data.success) toast(data.message || (username ? `Recheck triggered for ${username}` : 'Recheck all triggered'));
+    else toast(data.message || data.error || 'Failed to trigger check', 'error');
+  } catch (_) {
+    toast('Failed to trigger check', 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Follow analysis
+// ---------------------------------------------------------------------------
+async function showFollowAnalysis(username) {
+  const modal = openModal({
+    id: 'follow-analysis', title: 'Follow analysis', titleIcon: 'chart-bar', size: 'xl',
+    body: `<div class="space-y-3"><div class="w-1/3 h-6 skeleton"></div><div class="h-20 skeleton"></div><div class="h-40 skeleton"></div></div>`,
+  });
+  try {
+    const response = await fetch(`/api/follow-analysis/${encodeURIComponent(username)}`, { cache: 'no-store' });
+    const data = await response.json().catch(() => ({}));
+    const body = modal.querySelector('[data-modal-body]');
+    if (!document.contains(modal)) return;
+    if (!response.ok || !data.success) {
+      body.innerHTML = `<div class="alert alert-error">${icon('exclamation-triangle', 'w-5 h-5 shrink-0')}<div>${escapeHtml(data.error || 'Could not analyze follows')}</div></div>`;
+      return;
+    }
+    body.innerHTML = renderFollowAnalysis(data.analysis);
+    hydrateIcons(body);
+    wireFollowAnalysis(body);
+  } catch (_) {
+    const body = modal.querySelector('[data-modal-body]');
+    if (body) body.innerHTML = `<div class="alert alert-error">${icon('exclamation-triangle', 'w-5 h-5 shrink-0')}<div>Failed to load follow analysis</div></div>`;
+  }
+}
+
+// Builds safe HTML for a bounded follow analysis result
+function renderFollowAnalysis(value) {
+  const a = value && typeof value === 'object' ? value : {};
+  const username = typeof a.user === 'string' ? a.user : 'unknown';
+  const notes = (Array.isArray(a.notes) ? a.notes.filter(n => typeof n === 'string') : [])
+    .map(n => `<div class="alert alert-warning">${icon('exclamation-triangle', 'w-5 h-5 shrink-0')}<div>${escapeHtml(n)}</div></div>`).join('');
+  const safeList = v => Array.isArray(v) ? v.filter(u => typeof u === 'string') : [];
+  const safeCount = (v, fallback = 0) => Number.isSafeInteger(v) && v >= 0 ? v : fallback;
+  const savedAt = v => {
+    if (typeof v !== 'string') return 'unavailable';
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? 'unavailable' : d.toLocaleString();
+  };
+  const header = `<div class="flex items-center gap-3">${avatar(username, 'w-11 h-11 text-base')}<div>
+      <p class="text-base font-semibold text-gray-900 dark:text-white">@${escapeHtml(username)}</p>
+      <a href="${profileUrl(username)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs link">Open profile${icon('arrow-top-right-on-square', 'w-3.5 h-3.5')}</a></div></div>`;
+  if (!a.available) {
+    return `${header}${notes || `<div class="py-8 text-sm text-center text-gray-500 dark:text-gray-400">No saved lists to analyze yet.</div>`}`;
+  }
+  const notFollowingBack = safeList(a.not_following_back);
+  const fans = safeList(a.fans);
+  const nfbCount = safeCount(a.not_following_back_count, notFollowingBack.length);
+  const fansCount = safeCount(a.fans_count, fans.length);
+  const stat = (label, value, total, color) => `<div class="p-4 rounded-lg ${color}">
+      <p class="text-xs font-medium tracking-wide uppercase opacity-80">${label}</p>
+      <p class="mt-1 text-2xl font-bold tabular-nums">${value.toLocaleString()}${Number.isSafeInteger(total) && total !== value ? `<span class="text-sm font-medium opacity-70"> / ${total.toLocaleString()}</span>` : ''}</p></div>`;
+  const list = (items, truncated, total, emptyText) => items.length
+    ? `<ul class="grid content-start gap-2 p-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 max-h-[45vh]" data-user-list>${items.map(u => `<li data-username="${escapeHtml(u.toLowerCase())}">
+          <a href="${profileUrl(u)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 p-2 text-sm font-medium text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-white dark:border-gray-700 dark:hover:bg-gray-700">${avatar(u, 'w-7 h-7 text-xs')}<span class="truncate">${escapeHtml(u)}</span></a></li>`).join('')}</ul>
+       <p class="hidden py-6 text-sm text-center text-gray-500 dark:text-gray-400" data-no-match>No usernames match.</p>
+       ${truncated ? `<p class="text-xs text-gray-500 dark:text-gray-400">Showing the first ${items.length.toLocaleString()} of ${total.toLocaleString()} alphabetically.</p>` : ''}`
+    : `<p class="py-6 text-sm text-center text-gray-500 dark:text-gray-400">${emptyText}</p>`;
+  return `${header}
+    <div class="grid gap-3 sm:grid-cols-3">
+      ${stat('Followers', safeCount(a.followers_fetched), Number.isSafeInteger(a.followers_count) ? a.followers_count : undefined, 'bg-primary-50 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200')}
+      ${stat('Following', safeCount(a.followings_fetched), Number.isSafeInteger(a.followings_count) ? a.followings_count : undefined, 'bg-purple-50 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200')}
+      ${stat('Mutual', safeCount(a.mutual_count), undefined, 'bg-green-50 text-green-800 dark:bg-green-900/40 dark:text-green-200')}
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400">Follower snapshot: ${escapeHtml(savedAt(a.followers_saved_at))} · Following snapshot: ${escapeHtml(savedAt(a.followings_saved_at))}</p>
+    ${notes}
+    <div class="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex -mb-px" role="tablist">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-fa-tab="nfb">Not following back <span class="badge badge-idle">${nfbCount.toLocaleString()}</span></button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-fa-tab="fans">Fans <span class="badge badge-idle">${fansCount.toLocaleString()}</span></button>
+      </div>
+      <div class="relative w-full pb-2 sm:w-56">
+        <div class="absolute inset-y-0 flex items-center pb-2 pointer-events-none start-0 ps-3 text-gray-500 dark:text-gray-400">${icon('magnifying-glass', 'w-4 h-4')}</div>
+        <input type="search" class="form-input ps-9 !p-2 !ps-9" placeholder="Filter usernames" data-fa-search>
+      </div>
+    </div>
+    <div data-fa-panel="nfb" class="space-y-3">
+      <p class="text-xs text-gray-500 dark:text-gray-400">@${escapeHtml(username)} follows them, they do not follow back.</p>
+      ${list(notFollowingBack, Boolean(a.not_following_back_truncated), nfbCount, 'None')}
+    </div>
+    <div data-fa-panel="fans" class="space-y-3" hidden>
+      <p class="text-xs text-gray-500 dark:text-gray-400">They follow @${escapeHtml(username)}, @${escapeHtml(username)} does not follow back.</p>
+      ${list(fans, Boolean(a.fans_truncated), fansCount, 'None')}
+    </div>`;
+}
+
+function wireFollowAnalysis(body) {
+  const search = body.querySelector('[data-fa-search]');
+  const applySearch = () => {
+    const q = search ? search.value.trim().toLowerCase() : '';
+    $$('[data-fa-panel]', body).forEach(panel => {
+      const items = $$('[data-username]', panel);
+      let visible = 0;
+      items.forEach(li => { const show = !q || li.dataset.username.includes(q); li.hidden = !show; if (show) visible++; });
+      const none = panel.querySelector('[data-no-match]');
+      if (none) none.classList.toggle('hidden', visible > 0 || !items.length);
+    });
+  };
+  body.addEventListener('click', e => {
+    const tab = e.target.closest('[data-fa-tab]');
+    if (!tab) return;
+    $$('[data-fa-tab]', body).forEach(t => { const on = t === tab; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); });
+    $$('[data-fa-panel]', body).forEach(p => { p.hidden = p.dataset.faPanel !== tab.dataset.faTab; });
+  });
+  if (search) search.addEventListener('input', applySearch);
+}
+
+// ---------------------------------------------------------------------------
+// Media, stories and critical errors
+// ---------------------------------------------------------------------------
+function confirmAnonymity(url) {
+  const destination = safeUrl(url);
+  if (!destination) return;
+  const modal = openModal({
+    id: 'anonymity', title: 'Anonymity warning', titleIcon: 'eye', tone: 'warning', size: 'md',
+    body: `<p class="text-sm text-gray-600 dark:text-gray-300">You are about to view a story on Instagram.</p>
+      <div class="alert alert-warning">${icon('exclamation-triangle', 'w-5 h-5 shrink-0')}<div>The story owner may see that you viewed it using the Instagram account signed in to this browser. This can differ from the monitor's session account.</div></div>
+      <p class="text-sm text-gray-600 dark:text-gray-300">Use <span class="font-semibold">View media</span> or <span class="font-semibold">Play video</span> to view downloaded content without opening Instagram.</p>`,
+    footer: `<button type="button" class="btn btn-light" data-action="modal-close" autofocus>Cancel</button>
+      <a href="${escapeHtml(destination)}" target="_blank" rel="noopener noreferrer" class="btn btn-danger" data-anonymity-proceed>I understand, proceed</a>`,
+  });
+  modal.querySelector('[data-anonymity-proceed]').addEventListener('click', () => setTimeout(() => closeModal(modal), 0));
+}
+
+function playVideo(url) {
+  const src = sameOriginUrl(url);
+  if (!src) return;
+  const modal = openModal({
+    id: 'video', title: 'Local playback', titleIcon: 'film', size: 'xl',
+    body: `<div class="overflow-hidden bg-black rounded-lg aspect-video"><video class="w-full h-full" controls autoplay playsinline src="${escapeHtml(src)}">Your browser does not support the video tag.</video></div>`,
+    onClose: () => {},
+  });
+  const video = modal.querySelector('video');
+  modal._onClose = () => { try { video.pause(); } catch (_) {} };
+}
+
+function showCriticalError(error) {
+  const key = `${error.timestamp}-${error.message}`;
+  if (S.shownErrorTs === key && $('[data-modal="critical-error"]')) return;
+  S.shownErrorTs = key;
+  const when = error.timestamp ? new Date(error.timestamp * 1000).toLocaleString() : 'unknown';
+  setGlobalStatus('error', 'Crashed');
+  openModal({
+    id: 'critical-error', title: 'Critical error', titleIcon: 'exclamation-triangle', tone: 'danger', size: 'xl', dismissible: false,
+    body: `<p class="text-sm text-gray-600 dark:text-gray-300">The monitoring process has encountered a critical error.</p>
+      <dl class="grid gap-3 text-sm sm:grid-cols-2">
+        <div><dt class="dl-term">Error</dt><dd class="dl-desc">${escapeHtml(error.message)}</dd></div>
+        <div><dt class="dl-term">Time</dt><dd class="dl-desc">${escapeHtml(when)}</dd></div>
+      </dl>
+      <div><p class="mb-2 dl-term">Traceback</p><pre class="p-4 overflow-auto font-mono text-xs leading-relaxed text-red-700 whitespace-pre-wrap border border-gray-200 rounded-lg max-h-96 bg-gray-50 dark:bg-gray-900 dark:border-gray-700 dark:text-red-300">${escapeHtml(error.traceback || '')}</pre></div>`,
+    footer: `<button type="button" class="btn btn-primary" data-action="reload">${icon('arrow-path', 'w-4 h-4')}Reload page</button>`,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Session
+// ---------------------------------------------------------------------------
+const CHROMIUM_IMPORT_NOTE = 'Make sure you are logged in to Instagram in this browser. "Chromium" means the standalone open-source browser, not Chrome - pick it only if you run that browser. Requires the pycookiecheat package and works only on macOS and Linux (not on Windows, where Chrome\'s app-bound encryption blocks access - use Firefox there). Edge, Opera, Vivaldi and Arc are not supported.';
+
+function browserDisplayLabel(browser) {
+  return browser === 'chrome' ? 'Google Chrome' : browser.charAt(0).toUpperCase() + browser.slice(1);
+}
+
+function onBrowserChange() {
+  const browser = $('#browser-select').value;
+  setText($('#browser-import-label'), browserDisplayLabel(browser));
+  const note = $('#browser-import-note');
+  note.hidden = browser === 'firefox';
+  note.textContent = browser === 'firefox' ? '' : CHROMIUM_IMPORT_NOTE;
+  $('#browser-profiles-container').hidden = true;
+  $('#browser-profile-select').innerHTML = '';
+  $('#browser-import-btn').hidden = false;
+}
+
+// Returns profiles as {value, label, signedIn}, or null on error. Firefox's value is a path, Chromium's a profile dir
+async function fetchBrowserProfiles(browser) {
+  const url = browser === 'firefox' ? '/api/session/firefox/profiles' : '/api/session/chromium/profiles?browser=' + encodeURIComponent(browser);
+  const { data } = await getJSON(url);
+  if (!data.success) {
+    toast(data.error || 'Failed to detect profiles', 'error');
+    return null;
+  }
+  const profiles = (data.profiles || []).map(p => browser === 'firefox'
+    ? { value: p.path, label: p.install ? `${p.name} (${p.install})` : p.name, signedIn: p.signed_in }
+    : { value: p.dir, label: `${p.name} (${p.dir})`, signedIn: p.signed_in });
+  return { profiles, note: data.note || '' };
+}
+
+// One profile imports directly, several reveal the list to choose from
+async function startBrowserImport(btn) {
+  const browser = $('#browser-select').value;
+  toast(`Searching for ${browser} profiles…`, 'info');
+  let found;
+  if (btn) btn.disabled = true;
+  try {
+    found = await fetchBrowserProfiles(browser);
+  } catch (_) {
+    toast('Failed to detect profiles', 'error');
+    return;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+  if (found === null) return;
+  const profiles = found.profiles;
+  if (!profiles.length) {
+    toast(found.note || `No ${browser} profiles found`, 'error');
+    return;
+  }
+  if (profiles.length === 1) {
+    if (profiles[0].signedIn === false) toast(`${profiles[0].label} is not signed in to Instagram - sign in there first`, 'error');
+    doBrowserImport(browser, profiles[0].value);
+    return;
+  }
+  const select = $('#browser-profile-select');
+  select.innerHTML = profiles.map(p => `<option value="${escapeHtml(p.value)}">${p.signedIn ? '* ' : ''}${escapeHtml(p.label)}</option>`).join('');
+  $('#browser-profiles-container').hidden = false;
+  $('#browser-import-btn').hidden = true;
+  const signedIn = profiles.filter(p => p.signedIn);
+  if (signedIn.length === 1) select.value = signedIn[0].value;
+  toast(signedIn.length ? `Found ${profiles.length} profiles - * marks the ${signedIn.length} signed in to Instagram` : `Found ${profiles.length} profiles - select one and import`, 'info');
+}
+
+async function doBrowserImport(browser, value) {
+  const payload = { browser };
+  if (browser === 'firefox') payload.path = value; else payload.profile = value;
+  toast(`Importing session from ${browser}…`, 'info');
+  const data = await runAction(() => sendJSON('/api/session/browser/import', payload), { success: d => `Imported session for ${d.username}`, failure: 'Failed to import session' });
+  if (data) {
+    fetchStatus();
+    fetchSessionDetails();
+  }
+}
+
+async function configureSession() {
+  const username = $('#session-username').value.trim().replace(/^@/, '');
+  if (!username) {
+    toast('Please enter a username', 'error');
+    return;
+  }
+  const data = await runAction(() => sendJSON('/api/session', { username, method: 'saved' }), { success: 'Session configured', failure: 'Failed to configure session' });
+  if (data) {
+    fetchStatus();
+    fetchSessionDetails();
+  }
+}
+
+async function testSession(btn) {
+  toast('Testing session…', 'info');
+  const data = await runAction(() => sendJSON('/api/session/test'), { success: d => `Session valid: ${d.username}`, failure: 'Session test failed', busyEl: btn });
+  if (data) {
+    fetchStatus();
+    fetchSessionDetails();
+  }
+}
+
+async function refreshSession(btn) {
+  const ok = await confirmDialog({ title: 'Refresh session?', message: 'This reloads the session file and re-authenticates if needed.', confirmText: 'Refresh', tone: 'primary', titleIcon: 'arrow-path' });
+  if (!ok) return;
+  toast('Refreshing session…', 'info');
+  const data = await runAction(() => sendJSON('/api/session/refresh'), { success: d => d.message || 'Session refreshed successfully', failure: 'Session refresh failed', busyEl: btn });
+  if (data) {
+    fetchStatus();
+    fetchSessionDetails();
+  }
+}
+
+async function clearSession(btn) {
+  const ok = await confirmDialog({ title: 'Reset to no-login mode?', message: 'This removes the session configuration and deletes the session file. You will need to reconfigure the session to use logged-in mode again.', confirmText: 'Clear session' });
+  if (!ok) return;
+  toast('Clearing session…', 'info');
+  const data = await runAction(() => sendJSON('/api/session/clear'), { success: d => d.message || 'Session cleared', failure: 'Session clear failed', busyEl: btn });
+  if (data) {
+    $('#session-username').value = '';
+    fetchStatus();
+    fetchSessionDetails();
+  }
+}
+
+async function fetchSessionDetails() {
+  try {
+    const { data } = await getJSON('/api/session');
+    updateSessionDisplay(data);
+  } catch (_) { /* the next status poll reports connection problems */ }
+}
+
+function updateSessionDisplay(sessionData) {
+  if (!sessionData || typeof sessionData !== 'object') return;
+  // Status heartbeats carry fewer fields than /api/session, so they are merged rather than replacing the details
+  if (S.session && !sessionData.file_path && sessionData.username === S.session.username) {
+    sessionData = { ...S.session, ...sessionData };
+  }
+  S.session = sessionData;
+  const configured = Boolean(sessionData.username);
+  const badge = $('#session-badge');
+  const mode = $('#session-mode-indicator');
+
+  if (configured) {
+    setText($('#session-status-text'), `Configured for: ${sessionData.username}`);
+    badge.className = `badge ${sessionData.active ? 'badge-success' : 'badge-warning'}`;
+    setText(badge, sessionData.active ? 'Active' : 'Inactive');
+    mode.className = 'badge badge-info';
+    setText(mode, 'Logged-in mode');
+    $('#session-details').hidden = false;
+    $('#session-empty').hidden = true;
+    setText($('#session-detail-username'), sessionData.username);
+    setText($('#session-detail-file'), sessionData.file_path || 'Not found');
+    setText($('#session-detail-size'), sessionData.file_size_human || '–');
+    setText($('#session-detail-modified'), sessionData.last_modified_relative ? `${sessionData.last_modified} (${sessionData.last_modified_relative} ago)` : (sessionData.file_exists ? 'Unknown' : 'N/A'));
+    setText($('#session-detail-method'), sessionData.method ? (['firefox', 'chrome', 'brave', 'chromium'].includes(sessionData.method) ? `${browserDisplayLabel(sessionData.method)} import` : 'Manual setup') : '–');
+    setText($('#session-detail-tested'), sessionData.last_tested || 'Never');
+    $('#refresh-session-btn').hidden = false;
+    $('#clear-session-btn').hidden = false;
+    const input = $('#session-username');
+    if (document.activeElement !== input) input.value = sessionData.username;
+  } else {
+    setText($('#session-status-text'), 'Not configured');
+    badge.className = 'badge badge-idle';
+    setText(badge, 'Inactive');
+    mode.className = 'badge badge-idle';
+    setText(mode, 'No-login mode');
+    $('#session-details').hidden = true;
+    $('#session-empty').hidden = false;
+    $('#refresh-session-btn').hidden = true;
+    $('#clear-session-btn').hidden = true;
+  }
+  renderSidebarSession();
+}
+
+function renderSidebarSession() {
+  const s = S.session || {};
+  const name = s.username || '';
+  const av = $('#side-session-avatar');
+  setText(av, name ? name.charAt(0).toUpperCase() : '?');
+  av.className = `flex items-center justify-center w-9 h-9 text-sm font-semibold text-white rounded-full shrink-0 ${name ? 'bg-gradient-to-br from-primary-500 to-purple-500' : 'bg-gray-400 dark:bg-gray-600'}`;
+  setText($('#side-session-name'), name ? `@${name}` : 'Not configured');
+  setText($('#side-session-mode'), name ? (s.active ? 'Logged in · active' : 'Logged in · inactive') : 'No-login mode');
+  $('#nav-session-dot').className = `w-2 h-2 rounded-full ${name ? (s.active ? 'bg-green-500' : 'bg-yellow-400') : 'bg-gray-300 dark:bg-gray-600'}`;
+}
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+const SETTINGS_SECTIONS = [
+  { id: 'intervals', title: 'Check intervals', icon: 'clock', description: 'How often each target is checked', fields: [
+    { key: 'check_interval', type: 'number', label: 'Base interval (sec)', min: 300, max: 86400, def: 5400 },
+    { key: 'liveness_check_interval', type: 'number', label: 'Liveness check (sec)', min: 0, max: 2678400, def: 0 },
+    { key: 'random_low', type: 'number', label: 'Random variation low (sec)', min: 0, max: 3600, def: 900 },
+    { key: 'random_high', type: 'number', label: 'Random variation high (sec)', min: 0, max: 3600, def: 180 },
+  ], grid: true, note: 'Final interval = base − low … base + high. Base interval minimum: 300 s. Use 0 for the liveness check to disable it.' },
+  { id: 'tracking', title: 'Tracking options', icon: 'adjustments-horizontal', description: 'What the monitor collects for each target', fields: [
+    { key: 'be_human', type: 'toggle', label: 'Be Human mode', help: 'Perform random human-like actions' },
+    { key: 'skip_session_login', type: 'toggle', label: 'Skip session login', help: 'Anonymous mode (limited info)' },
+    { key: 'profile_pic_changes', type: 'toggle', label: 'Profile picture monitoring', help: 'Detect changes to profile picture' },
+    { key: 'followers_churn', type: 'toggle', label: 'Follower churn detection', help: 'Detect additions/removals even if count is same' },
+    { key: 'skip_follow_changes', type: 'toggle', label: 'Skip follow changes', help: 'Do not report followers/followings changes' },
+    { key: 'skip_followers', type: 'toggle', label: 'Skip followers', help: 'Do not download the follower list' },
+    { key: 'skip_followings', type: 'toggle', label: 'Skip followings', help: 'Do not download the following list' },
+    { key: 'skip_stories', type: 'toggle', label: 'Skip stories', help: 'Skip detailed story information' },
+    { key: 'skip_posts', type: 'toggle', label: 'Skip posts', help: 'Skip detailed post and reel information' },
+    { key: 'get_more_post_details', type: 'toggle', label: 'Get more post details', help: 'Detailed fetch for each post' },
+    { key: 'detect_collab_posts', type: 'toggle', label: 'Detect collab posts', help: 'Probe private accounts for visible collab posts', def: true },
+    { key: 'fetch_reels', type: 'toggle', label: 'Fetch reels', help: 'Monitor the reel count and reels (many requests per check)' },
+  ] },
+  { id: 'email', title: 'Email notifications', icon: 'envelope', description: 'Which events send an email', fields: [
+    { key: 'email_notifications', type: 'toggle', label: 'Status & profile changes', help: 'New posts, reels, stories, bio, pic' },
+    { key: 'follower_notifications', type: 'toggle', label: 'Follower changes', help: 'New followers or unfollows' },
+    { key: 'error_notifications', type: 'toggle', label: 'Error alerts', help: 'Critical monitoring errors' },
+  ] },
+  { id: 'hours', title: 'Fetch hours range', icon: 'calendar-days', description: 'Only fetch updates within the defined ranges', custom: 'hours' },
+  { id: 'smtp', title: 'SMTP', icon: 'server-stack', description: 'Mail server used for email notifications', fields: [
+    { key: 'smtp_host', type: 'text', label: 'SMTP host', placeholder: 'your_smtp_server_ssl' },
+    { key: 'smtp_port', type: 'number', label: 'SMTP port', min: 1, max: 65535, def: 587, placeholder: '587', optional: true },
+    { key: 'smtp_user', type: 'text', label: 'SMTP user', placeholder: 'your_smtp_user' },
+    { key: 'smtp_password', type: 'password', label: 'SMTP password' },
+    { key: 'sender_email', type: 'email', label: 'Sender email', placeholder: 'your_sender_email' },
+    { key: 'receiver_email', type: 'email', label: 'Receiver email', placeholder: 'your_receiver_email' },
+    { key: 'smtp_ssl', type: 'toggle', label: 'Enable SSL', help: 'Connect to the SMTP server over SSL' },
+  ], grid: true, actions: [{ action: 'test-email', label: 'Send test email', icon: 'envelope' }] },
+  { id: 'webhook', title: 'Webhook notifications', icon: 'bell', description: 'Discord or ntfy alerts', fields: [
+    { key: 'webhook_enabled', type: 'toggle', label: 'Enabled', help: 'Send notifications through the webhook below' },
+    { key: 'webhook_provider', type: 'select', label: 'Provider', options: [['discord', 'Discord'], ['ntfy', 'ntfy']], def: 'discord' },
+    { key: 'webhook_url', type: 'secret', label: 'Webhook URL', placeholder: 'Discord webhook or complete ntfy topic URL', setFlag: 'webhook_url_set' },
+    { key: 'webhook_status', type: 'toggle', label: 'Status changes', help: 'Posts, reels, stories, bio, profile picture, visibility' },
+    { key: 'webhook_followers', type: 'toggle', label: 'Follower changes', help: 'New follows, unfollows and count changes' },
+    { key: 'webhook_errors', type: 'toggle', label: 'Errors', help: 'Monitoring errors and the recovery alert that follows' },
+  ], lead: ['webhook_enabled'], actions: [{ action: 'test-webhook', label: 'Send test webhook', icon: 'bell' }] },
+  { id: 'logging', title: 'Logging & advanced', icon: 'document-text', description: 'Output, time display and diagnostics', fields: [
+    { key: 'dashboard_show_check_seconds', type: 'toggle', label: 'Show seconds in check times', help: 'Applies to dashboard last/next check (global and per target)', def: true },
+    { key: 'time_format_12h', type: 'toggle', label: '12-hour time format', help: 'Use AM/PM instead of 24-hour' },
+    { key: 'logging_enabled', type: 'toggle', label: 'Output logging', help: 'Enable logging to instagram_monitor.log' },
+    { key: 'csv_filename', type: 'text', label: 'CSV filename', placeholder: 'test.csv', source: 'csv_file', help: 'File name only. Empty disables CSV logging.' },
+    { key: 'verbose_mode', type: 'toggle', label: 'Verbose mode', help: 'Sleep durations, next check times and liveness confirmations' },
+    { key: 'hours_verbose', type: 'toggle', label: 'Hours verbose', help: 'Report the restricted monitoring hours' },
+    { key: 'debug_mode', type: 'toggle', label: 'Debug mode', help: 'Every API request and internal state change' },
+  ] },
+  { id: 'connection', title: 'Instagram connection', icon: 'globe-alt', description: 'How requests reach Instagram', fields: [
+    { key: 'http_backend', type: 'select', label: 'HTTP backend', options: [['curl_cffi', 'curl_cffi (browser TLS fingerprint)'], ['requests', 'requests (system TLS stack)']] },
+    { key: 'impersonate', type: 'select', label: 'Impersonated browser', options: [['auto', 'Auto (match the user agent)']], showIf: () => $('#set-http_backend') && $('#set-http_backend').value === 'curl_cffi' },
+    { key: 'follow_list_source', type: 'select', label: 'Follower list source', options: [['auto', 'Auto (REST, retry over GraphQL)'], ['rest', 'REST only'], ['graphql', 'GraphQL only'], ['browser', 'Browser (experimental)']] },
+  ], custom: 'connection-note' },
+  { id: 'proxy', title: 'Proxy', icon: 'signal', description: 'Route traffic through a proxy', fields: [
+    { key: 'proxy_enabled', type: 'toggle', label: 'Proxy for Instagram', help: 'Route Instagram requests through the proxy' },
+    { key: 'proxy_webhooks', type: 'toggle', label: 'Proxy for webhooks', help: 'Route webhook requests through the proxy' },
+    { key: 'proxy_url', type: 'secret', label: 'Proxy URL', placeholder: 'http://host:port', setFlag: 'proxy_url_set' },
+    { key: 'proxy_cert', type: 'text', label: 'Proxy certificate (optional)', placeholder: '/path/to/ca.pem' },
+  ], lead: ['proxy_enabled', 'proxy_webhooks'], note: 'Proxy changes take effect after existing network activity completes.' },
+];
+
+function fieldId(key) { return `set-${key}`; }
+
+function renderField(f) {
+  const id = fieldId(f.key);
+  if (f.type === 'toggle') {
+    return `<label class="flex items-center justify-between gap-4 py-3 cursor-pointer" data-field="${f.key}">
+        <span class="min-w-0"><span class="block text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(f.label)}</span>${f.help ? `<span class="block text-xs text-gray-500 dark:text-gray-400">${escapeHtml(f.help)}</span>` : ''}</span>
+        <input type="checkbox" id="${id}" class="sr-only peer"><span class="toggle-track"></span>
+      </label>`;
+  }
+  let control;
+  if (f.type === 'select') {
+    control = `<select id="${id}" class="form-input">${(f.options || []).map(([v, l]) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('')}</select>`;
+  } else {
+    const type = f.type === 'secret' ? 'text' : f.type;
+    const attrs = [
+      f.min !== undefined ? `min="${f.min}"` : '', f.max !== undefined ? `max="${f.max}"` : '',
+      f.placeholder ? `placeholder="${escapeHtml(f.placeholder)}"` : '',
+      f.type === 'password' ? 'autocomplete="new-password"' : 'autocomplete="off"',
+      f.type === 'number' ? 'inputmode="numeric" step="1"' : 'spellcheck="false"',
+    ].join(' ');
+    control = `<input type="${type}" id="${id}" class="form-input" ${attrs}>`;
+  }
+  const range = f.type === 'number' && f.min !== undefined ? `${f.min}–${Number(f.max).toLocaleString()}` : '';
+  return `<div class="py-3" data-field="${f.key}">
+      <label for="${id}" class="form-label">${escapeHtml(f.label)}</label>${control}
+      ${f.help || range ? `<p class="form-help" data-help-for="${f.key}">${escapeHtml(f.help || `Allowed: ${range}`)}</p>` : ''}
+    </div>`;
+}
+
+function renderHoursSection() {
+  const range = n => `<div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+      <label class="flex items-center justify-between gap-4 cursor-pointer">
+        <span class="text-sm font-semibold text-gray-900 dark:text-white">Range ${n}</span>
+        <input type="checkbox" id="set-h${n}-enabled" class="sr-only peer"><span class="toggle-track"></span>
+      </label>
+      <div class="grid grid-cols-2 gap-3 mt-3" id="set-h${n}-inputs">
+        <div><label for="set-min_h${n}" class="form-label">Start hour</label><input type="number" id="set-min_h${n}" class="form-input" min="0" max="23" step="1" inputmode="numeric"></div>
+        <div><label for="set-max_h${n}" class="form-label">End hour</label><input type="number" id="set-max_h${n}" class="form-input" min="0" max="23" step="1" inputmode="numeric"></div>
+      </div>
+    </div>`;
+  return `<label class="flex items-center justify-between gap-4 py-3 cursor-pointer">
+      <span><span class="block text-sm font-medium text-gray-900 dark:text-white">Limit fetching to specific hours</span><span class="block text-xs text-gray-500 dark:text-gray-400">Only fetch updates within the defined ranges</span></span>
+      <input type="checkbox" id="set-check_posts_in_hours_range" class="sr-only peer"><span class="toggle-track"></span>
+    </label>
+    <div class="grid gap-3 pt-2 sm:grid-cols-2" id="hours-ranges">${range(1)}${range(2)}</div>
+    <p class="mt-3 form-help">Hours 0–23. Ranges are hour buckets (HH:00–HH:59). Turning a range off sends 0–0, which disables it.</p>`;
+}
+
+function buildSettingsForm() {
+  const form = $('#settings-form');
+  form.innerHTML = SETTINGS_SECTIONS.map(sec => {
+    const lead = (sec.fields || []).filter(f => (sec.lead || []).includes(f.key));
+    const toggles = (sec.fields || []).filter(f => f.type === 'toggle' && !lead.includes(f));
+    const inputs = (sec.fields || []).filter(f => f.type !== 'toggle');
+    let content = '';
+    if (sec.custom === 'hours') content = renderHoursSection();
+    else {
+      const inputHtml = inputs.map(renderField).join('');
+      content = (lead.length ? `<div class="mb-2 border-b border-gray-100 divide-y divide-gray-100 dark:border-gray-700 dark:divide-gray-700">${lead.map(renderField).join('')}</div>` : '')
+        + (inputs.length ? `<div class="${sec.grid ? 'grid gap-x-4 sm:grid-cols-2' : ''}">${inputHtml}</div>` : '')
+        + (toggles.length ? `<div class="divide-y divide-gray-100 dark:divide-gray-700 ${inputs.length ? 'mt-2 border-t border-gray-100 dark:border-gray-700' : ''}">${toggles.map(renderField).join('')}</div>` : '');
+    }
+    if (sec.custom === 'connection-note') content += `<div id="connection-note" class="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400"></div>`;
+    if (sec.note) content += `<p class="mt-3 form-help">${escapeHtml(sec.note)}</p>`;
+    const actions = (sec.actions || []).map(a => `<button type="button" class="btn btn-light btn-sm" data-action="${a.action}">${icon(a.icon, 'w-4 h-4')}${escapeHtml(a.label)}</button>`).join('');
+    return `<div class="card scroll-mt-24" id="section-${sec.id}">
+        <div class="flex items-start gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
+          <span class="flex items-center justify-center w-10 h-10 rounded-lg shrink-0 bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300">${icon(sec.icon, 'w-5 h-5')}</span>
+          <div class="flex-1 min-w-0"><h2 class="card-title">${escapeHtml(sec.title)}</h2><p class="card-subtitle">${escapeHtml(sec.description || '')}</p></div>
+        </div>
+        <div class="px-4 pb-4 mt-2 sm:px-6 sm:pb-6">${content}${actions ? `<div class="flex flex-wrap gap-2 pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">${actions}</div>` : ''}</div>
+      </div>`;
+  }).join('');
+  setHTML($('#settings-nav'), SETTINGS_SECTIONS.map(sec => `<button type="button" class="btn btn-light btn-sm" data-action="settings-jump" data-section="${sec.id}">${icon(sec.icon, 'w-4 h-4')}${escapeHtml(sec.title)}</button>`).join(''));
+  hydrateIcons(form);
+}
+
+// Browser profiles offered when the installed curl_cffi does not publish its own list
+const FALLBACK_IMPERSONATE_TARGETS = ['chrome', 'firefox', 'safari', 'safari_ios', 'edge'];
+
+function populateSettings(s) {
+  if (!$('#settings-form').children.length) buildSettingsForm();
+  for (const sec of SETTINGS_SECTIONS) {
+    for (const f of sec.fields || []) {
+      const el = $(`#${fieldId(f.key)}`);
+      if (!el) continue;
+      const raw = s[f.source || f.key];
+      if (f.type === 'toggle') el.checked = raw === undefined || raw === null ? Boolean(f.def) : Boolean(raw);
+      else if (f.type === 'number') el.value = raw === undefined || raw === null || raw === '' ? (f.def ?? '') : raw;
+      else if (f.type === 'secret') {
+        el.value = '';
+        el.placeholder = s[f.setFlag] ? 'Configured - enter a new URL to replace it' : (f.placeholder || '');
+      } else if (f.type === 'password') {
+        el.value = s.smtp_password_set ? '********' : '';
+        el.placeholder = s.smtp_password_set ? '********' : '';
+      } else if (f.type === 'select') {
+        if (f.key !== 'impersonate' && f.key !== 'http_backend') el.value = raw || f.def || el.options[0].value;
+      } else el.value = raw ?? '';
+    }
+  }
+
+  // HTTP backend and impersonation targets depend on what this installation offers
+  const backend = $('#set-http_backend');
+  const curl = backend.querySelector('option[value="curl_cffi"]');
+  const available = s.curl_cffi_available !== false;
+  curl.disabled = !available;
+  curl.textContent = available ? 'curl_cffi (browser TLS fingerprint)' : 'curl_cffi (not installed)';
+  backend.value = s.http_backend || (available ? 'curl_cffi' : 'requests');
+  const imp = $('#set-impersonate');
+  const targets = (s.impersonate_targets && s.impersonate_targets.length) ? s.impersonate_targets : FALLBACK_IMPERSONATE_TARGETS;
+  const current = s.impersonate || 'auto';
+  const selectable = targets.includes(current) || current === 'auto' ? targets : [current].concat(targets);
+  imp.innerHTML = '<option value="auto">Auto (match the user agent)</option>' + selectable.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  imp.value = current;
+
+  $('#set-check_posts_in_hours_range').checked = Boolean(s.check_posts_in_hours_range);
+  for (const n of [1, 2]) {
+    const min = s[`min_h${n}`] ?? 0, max = s[`max_h${n}`] ?? 0;
+    $(`#set-min_h${n}`).value = min;
+    $(`#set-max_h${n}`).value = max;
+    $(`#set-h${n}-enabled`).checked = min !== 0 || max !== 0;
+  }
+
+  if (s.session_username) {
+    const input = $('#session-username');
+    if (input && document.activeElement !== input) input.value = s.session_username;
+  }
+
+  updateSettingsDependencies();
+  $('#settings-loading').hidden = true;
+  $('#settings-form').hidden = false;
+  S.settingsBaseline = JSON.stringify(collectSettings(true).payload);
+  updateDirtyState();
+}
+
+function updateSettingsDependencies() {
+  const backend = $('#set-http_backend');
+  if (!backend) return;
+  const impField = $('[data-field="impersonate"]');
+  if (impField) impField.hidden = backend.value !== 'curl_cffi';
+  const notes = [];
+  if ($('#set-follow_list_source').value === 'browser') notes.push('The browser source drives a real browser and needs Playwright. It is experimental and risks the logged-in account.');
+  notes.push('Backend changes take effect on the next Instagram request.');
+  setHTML($('#connection-note'), notes.map(n => `<p class="flex gap-1.5">${icon('information-circle', 'w-4 h-4 shrink-0')}<span>${escapeHtml(n)}</span></p>`).join(''));
+  const hoursOn = $('#set-check_posts_in_hours_range').checked;
+  $('#hours-ranges').classList.toggle('opacity-50', !hoursOn);
+  for (const n of [1, 2]) {
+    const on = $(`#set-h${n}-enabled`).checked;
+    $$(`#set-h${n}-inputs input`).forEach(i => { i.disabled = !on; });
+  }
+}
+
+// Reads the form into the payload /api/settings expects. Returns {payload, errors}
+function collectSettings(quiet = false) {
+  const payload = {};
+  const errors = [];
+  $$('.form-input.is-invalid', $('#settings-form')).forEach(el => el.classList.remove('is-invalid'));
+  const int = (el, min, max, optional) => {
+    const text = String(el.value).trim();
+    if (optional && text === '') return undefined;
+    const n = Number(text);
+    if (text === '' || !Number.isInteger(n) || n < min || n > max) {
+      if (!quiet) el.classList.add('is-invalid');
+      errors.push(`${el.closest('[data-field]') ? el.closest('[data-field]').querySelector('label').textContent : el.id} must be a whole number between ${min} and ${max}`);
+      return undefined;
+    }
+    return n;
+  };
+  for (const sec of SETTINGS_SECTIONS) {
+    for (const f of sec.fields || []) {
+      const el = $(`#${fieldId(f.key)}`);
+      if (!el) continue;
+      if (f.type === 'toggle') payload[f.key] = el.checked;
+      else if (f.type === 'number') { const v = int(el, f.min, f.max, f.optional); if (v !== undefined) payload[f.key] = v; }
+      else if (f.type === 'secret') { if (el.value.trim()) payload[f.key] = el.value.trim(); }
+      else payload[f.key] = el.value;
+    }
+  }
+  payload.check_posts_in_hours_range = $('#set-check_posts_in_hours_range').checked;
+  for (const n of [1, 2]) {
+    const on = $(`#set-h${n}-enabled`).checked;
+    const min = on ? int($(`#set-min_h${n}`), 0, 23) : 0;
+    const max = on ? int($(`#set-max_h${n}`), 0, 23) : 0;
+    if (min !== undefined) payload[`min_h${n}`] = min;
+    if (max !== undefined) payload[`max_h${n}`] = max;
+    if (on && min !== undefined && max !== undefined && (min || max) && min > max) {
+      if (!quiet) $(`#set-min_h${n}`).classList.add('is-invalid');
+      errors.push(`Range ${n}: min hour cannot be greater than max hour`);
+    }
+  }
+  return { payload, errors };
+}
+
+function updateDirtyState() {
+  if (!S.settings || $('#settings-form').hidden) return;
+  const dirty = JSON.stringify(collectSettings(true).payload) !== S.settingsBaseline;
+  $('#settings-savebar').hidden = !dirty;
+  $('#nav-settings-dirty').hidden = !dirty;
+}
+
+async function fetchSettings() {
+  try {
+    const { ok, data } = await getJSON('/api/settings');
+    if (!ok) throw new Error('settings');
+    S.settings = data;
+    populateSettings(data);
+  } catch (_) {
+    toast('Failed to load settings', 'error');
+  }
+}
+
+async function saveSettings(btn) {
+  const { payload, errors } = collectSettings();
+  if (errors.length) {
+    toast(errors[0], 'error');
+    const bad = $('#settings-form .is-invalid');
+    if (bad) bad.focus();
+    return;
+  }
+  const data = await runAction(() => sendJSON('/api/settings', payload), { success: 'Settings saved', failure: 'Failed to save settings', busyEl: btn });
+  if (data) {
+    if (Array.isArray(data.changes) && data.changes.length) toast(`${data.changes.length} change${data.changes.length === 1 ? '' : 's'} applied`, 'info');
+    await fetchSettings();
+    fetchStatus();
+  }
+}
+
+async function generateConfig() {
+  const { payload, errors } = collectSettings();
+  if (errors.length) {
+    toast(errors[0], 'error');
+    return;
+  }
+  const filename = await promptDialog({
+    title: 'Generate config file', label: 'Config filename', value: 'instagram_monitor.conf', confirmText: 'Generate',
+    message: 'Writes the settings currently in this form to a new config file.',
+    help: 'File name only, ending in .conf. It is created in the monitor\'s working directory (/data in the Docker image).',
+  });
+  if (!filename) return;
+  toast('Generating config…', 'info');
+  const data = await runAction(() => sendJSON('/api/generate-config', { filename, settings: payload }), { success: d => `Config generated: ${d.path || d.filename}`, failure: 'Failed to generate config' });
+  if (data) fetchSettings();
+}
+
+async function testEmail(btn) {
+  toast('Sending test email…', 'info');
+  await runAction(() => sendJSON('/api/test-email'), { success: 'Test email sent successfully', failure: 'Failed to send test email', busyEl: btn });
+}
+
+async function testWebhook(btn) {
+  toast('Sending test webhook…', 'info');
+  await runAction(() => sendJSON('/api/test-webhook'), { success: 'Test webhook sent successfully', failure: 'Failed to send test webhook', busyEl: btn });
+}
+
+async function discardSettings() {
+  if (S.settings) populateSettings(S.settings);
+  toast('Changes discarded', 'info');
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+const ACTIONS = {
+  'toggle-sidebar': () => setSidebar($('#sidebar').classList.contains('-translate-x-full')),
+  'close-sidebar': () => setSidebar(false),
+  'cycle-theme': cycleTheme,
+  'set-mode': el => setUIMode(el.dataset.mode),
+  'open-add-target': openAddTarget,
+  'add-target': addTarget,
+  'start-all': () => startMonitoring(),
+  'stop-all': () => stopMonitoring(),
+  'recheck-all': () => triggerCheck(),
+  'target-recheck': el => triggerCheck(el.dataset.target),
+  'target-analysis': el => showFollowAnalysis(el.dataset.target),
+  'target-start': el => startMonitoring(el.dataset.target),
+  'target-stop': el => stopMonitoring(el.dataset.target),
+  'target-remove': el => removeTarget(el.dataset.target),
+  'sort-targets': () => { S.sort = S.sort === 'asc' ? 'desc' : 'asc'; renderTargets(); },
+  'log-filter': el => { S.logFilter = el.dataset.level; renderActivities(); },
+  'clear-activity': clearActivity,
+  'save-settings': el => saveSettings(el),
+  'discard-settings': discardSettings,
+  'generate-config': generateConfig,
+  'test-email': el => testEmail(el),
+  'test-webhook': el => testWebhook(el),
+  'settings-jump': el => { const t = $(`#section-${el.dataset.section}`); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+  'browser-import': el => startBrowserImport(el),
+  'import-selected-profile': () => { const v = $('#browser-profile-select').value; if (v) doBrowserImport($('#browser-select').value, v); },
+  'set-session-username': configureSession,
+  'test-session': el => testSession(el),
+  'refresh-session': el => refreshSession(el),
+  'clear-session': el => clearSession(el),
+  'open-story': el => confirmAnonymity(el.dataset.url),
+  'play-video': el => playVideo(el.dataset.url),
+  'modal-close': el => closeModal(el.closest('[data-modal]')),
+  'reload': () => location.reload(),
+};
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el || el.disabled) return;
+  const handler = ACTIONS[el.dataset.action];
+  if (!handler) return;
+  e.preventDefault();
+  handler(el);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const modal = topModal();
+  if (modal && modal._dismissible) { closeModal(modal); return; }
+  if (!$('#sidebar').classList.contains('-translate-x-full')) setSidebar(false);
+});
+
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'targets-search') { S.targetSearch = t.value; renderTargets(); return; }
+  if (t.id === 'activity-search') { S.activitySearch = t.value; renderActivities(); return; }
+  if (t.id === 'new-target-username') t.classList.remove('is-invalid');
+  if (t.closest && t.closest('#settings-form')) { t.classList.remove('is-invalid'); updateSettingsDependencies(); updateDirtyState(); }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'browser-select') onBrowserChange();
+  if (t.closest && t.closest('#settings-form')) { updateSettingsDependencies(); updateDirtyState(); }
+});
+
+window.addEventListener('hashchange', showPage);
+window.addEventListener('beforeunload', e => {
+  if (!$('#settings-savebar').hidden) { e.preventDefault(); e.returnValue = ''; }
+});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (currentTheme() === 'system') applyTheme('system'); });
+
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
+hydrateIcons();
+applyTheme(currentTheme());
+setText($('#tool-version'), VERSION || '–');
+renderUIMode();
+renderLogFilters();
+showPage();
+(async () => {
+  await fetchStatus();
+  fetchSessionDetails();
+})();
+fetchSettings();
+setInterval(fetchStatus, 5000);
+setInterval(fetchSessionDetails, 30000);
+setInterval(renderRelativeTimes, 1000);
+</script>
+</body>
+{% endraw %}
+</html>
